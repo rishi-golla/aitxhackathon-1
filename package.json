@@ -4,17 +4,13 @@
     "private": true,
     "main": "backend/main.js",
     "scripts": {
-      "dev:next": "next dev frontend",
+      "dev:next": "cd frontend && npm run dev",
       "dev:electron": "electron .",
       "dev": "concurrently \"npm run dev:next\" \"npm run dev:electron\"",
-      "build:next": "next build frontend",
+      "build:next": "cd frontend && npm run build",
       "start": "electron ."
     },
-    "dependencies": {
-      "next": "^14.2.5",
-      "react": "^18.2.0",
-      "react-dom": "^18.2.0"
-    },
+    "dependencies": {},
     "devDependencies": {
       "electron": "^30.0.0",
       "concurrently": "^8.2.0",
