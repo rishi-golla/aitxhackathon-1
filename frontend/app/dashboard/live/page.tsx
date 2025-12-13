@@ -177,21 +177,48 @@ export default function LivePage() {
   const [selectedFloor, setSelectedFloor] = useState<number | 'all'>('all')
   const [cameras, setCameras] = useState<Camera[]>([])
   
-  // Load cameras from localStorage
+  // Load cameras from API
   useEffect(() => {
-    const stored = localStorage.getItem('factory-floorplan-vectors')
-    if (stored) {
+    const loadCameras = async () => {
       try {
-        const data = JSON.parse(stored)
-        const loadedCameras: Camera[] = data.cameras.map((cam: any) => ({
-          ...cam,
-          status: ['normal', 'warning', 'incident', 'inactive'][Math.floor(Math.random() * 4)],
-        }))
-        setCameras(loadedCameras)
+        const token = localStorage.getItem('token')
+        if (!token) {
+          console.warn('No auth token found')
+          return
+        }
+
+        const response = await fetch('/api/user/data', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        })
+
+        if (!response.ok) {
+          console.error('Failed to load cameras from API')
+          return
+        }
+
+        const data = await response.json()
+        
+        if (data.cameras && Array.isArray(data.cameras)) {
+          // Convert API format to component format
+          const loadedCameras: Camera[] = data.cameras.map((cam: any) => ({
+            id: cam.id,
+            label: cam.label,
+            streamUrl: cam.streamUrl,
+            floor: cam.floor,
+            active: cam.active !== false,
+            status: cam.status || 'normal',
+          }))
+          setCameras(loadedCameras)
+          console.log(`✅ Loaded ${loadedCameras.length} cameras from ${data.databaseType || 'API'}`)
+        }
       } catch (error) {
         console.error('Failed to load cameras:', error)
       }
     }
+
+    loadCameras()
   }, [])
   
   const filteredCameras = selectedFloor === 'all' 
