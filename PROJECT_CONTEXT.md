@@ -48,16 +48,16 @@
 
 **Phase 1: The Handshake (Hours 0-4)**
 * [ ] **Dev A:** Electron app launches and displays a blank window.
-* [ ] **Dev B:** Python script streams a dummy MP4 file to `localhost:8000/video_feed`.
+* [x] **Dev B:** Python script streams a dummy MP4 file to `localhost:8000/video_feed`.
 * [ ] **Joint:** Electron displays the stream.
 
 **Phase 2: The Red Box (Hours 4-12)**
-* [ ] **Dev B:** YOLO-World correctly detects "bare hand" in the Voxel51 dataset.
-* [ ] **Dev B:** Bounding boxes are drawn on the stream.
+* [x] **Dev B:** YOLO-World correctly detects "bare hand" in the Voxel51 dataset.
+* [x] **Dev B:** Bounding boxes are drawn on the stream.
 * [ ] **Dev A:** Sidebar UI shell is built.
 
 **Phase 3: The Lawyer (Hours 12-24)**
-* [ ] **Dev B:** Integrate `osha_rules.json` logic (e.g., `If Bare Hand + Machine -> Trigger 1910.138`).
+* [x] **Dev B:** Integrate `osha_rules.json` logic (e.g., `If Bare Hand + Machine -> Trigger 1910.138`).
 * [ ] **Dev A:** Sidebar updates with real OSHA codes when violations trigger.
 * [ ] **Dev A:** "Fine Calculator" updates in real-time.
 
