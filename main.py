@@ -1,6 +1,7 @@
 import json
 import cv2
 import uvicorn
+import os
 from fastapi import FastAPI
 from ultralytics import YOLOWorld
 from fastapi.responses import StreamingResponse
@@ -52,21 +53,34 @@ current_violations: List[Dict[str, Any]] = []
 model = YOLOWorld('yolov8s-world.pt') 
 model.set_classes(["bare_hand", "gloved_hand", "safety_glasses", "face", "industrial_machine"])
 # model.set_classes(["bare_hand", "gloved_hand", "safety_glasses", "face", "industrial_machine"])
-
 def generate_frames():
     global current_violations
     
-    # Open video capture (0 for webcam, or path to file)
-    cap = cv2.VideoCapture(0) 
+    # Determine video source: Env var 'VIDEO_SOURCE' or default to 0 (webcam)
+    video_source = os.getenv("VIDEO_SOURCE", "0")
+    
+    # If it's a digit, convert to int (for webcam index)
+    if video_source.isdigit():
+        video_source = int(video_source)
+        
+    print(f"Starting video stream from source: {video_source}")
+    cap = cv2.VideoCapture(video_source) 
     
     if not cap.isOpened():
-        print("Error: Could not open video source.")
+        print(f"Error: Could not open video source: {video_source}")
         return
 
     while True:
         success, frame = cap.read()
         if not success:
-            break
+            # If reading from a file, loop it
+            if isinstance(video_source, str) and os.path.exists(video_source):
+                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                continue
+            else:
+                break
+        
+        # --- AI INFERENCE ---
         # --- AI INFERENCE ---
         results = model.predict(frame, conf=0.15, verbose=False)
         result = results[0]
