@@ -16,26 +16,94 @@ const FactorySceneManual = dynamic(() => import('./FactorySceneManual'), {
   )
 })
 
-// Local storage key
-const STORAGE_KEY = 'factory-floorplan-vectors'
-
-function loadVectors(): FloorPlanVectors {
+// Load vectors from API
+async function loadVectors(): Promise<FloorPlanVectors> {
   if (typeof window === 'undefined') return { walls: [], cameras: [], referenceImage: null }
   
-  const stored = localStorage.getItem(STORAGE_KEY)
-  if (stored) {
-    try {
-      return JSON.parse(stored)
-    } catch {
-      return { walls: [], cameras: [], referenceImage: null }
+  try {
+    const token = localStorage.getItem('token')
+    if (!token) return { walls: [], cameras: [], referenceImage: null }
+
+    const response = await fetch('/api/user/data', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok) return { walls: [], cameras: [], referenceImage: null }
+
+    const data = await response.json()
+    
+    // Convert API format to local format
+    const walls: WallSegment[] = (data.walls || []).map((w: any) => ({
+      id: w.id,
+      start: JSON.parse(w.start),
+      end: JSON.parse(w.end),
+      floor: w.floor,
+    }))
+    
+    const cameras: CameraNode[] = (data.cameras || []).map((c: any) => ({
+      id: c.id,
+      label: c.label,
+      streamUrl: c.streamUrl,
+      floor: c.floor,
+      position: JSON.parse(c.position),
+      rotation: JSON.parse(c.rotation),
+      active: c.active,
+      status: c.status || 'normal',
+    }))
+    
+    return {
+      walls,
+      cameras,
+      referenceImage: data.floorPlan?.referenceImage || null,
     }
+  } catch (error) {
+    console.error('Failed to load vectors:', error)
+    return { walls: [], cameras: [], referenceImage: null }
   }
-  return { walls: [], cameras: [], referenceImage: null }
 }
 
-function saveVectors(vectors: FloorPlanVectors) {
+// Save vectors to API
+async function saveVectors(vectors: FloorPlanVectors) {
   if (typeof window === 'undefined') return
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(vectors))
+  
+  try {
+    const token = localStorage.getItem('token')
+    if (!token) return
+
+    // Convert local format to API format
+    const cameras = vectors.cameras.map(c => ({
+      label: c.label,
+      streamUrl: c.streamUrl,
+      floor: c.floor,
+      position: JSON.stringify(c.position),
+      rotation: JSON.stringify(c.rotation),
+      active: c.active,
+      status: c.status || 'normal',
+    }))
+    
+    const walls = vectors.walls.map(w => ({
+      floor: w.floor,
+      start: JSON.stringify(w.start),
+      end: JSON.stringify(w.end),
+    }))
+
+    await fetch('/api/user/data', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        cameras,
+        walls,
+        referenceImage: vectors.referenceImage,
+      }),
+    })
+  } catch (error) {
+    console.error('Failed to save vectors:', error)
+  }
 }
 
 function CameraModal({
@@ -213,10 +281,14 @@ export default function DigitalTwinManual() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [pendingPosition, setPendingPosition] = useState<[number, number, number] | null>(null)
   const [isAutoTracing, setIsAutoTracing] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    setVectors(loadVectors())
+    loadVectors().then(data => {
+      setVectors(data)
+      setIsLoading(false)
+    })
   }, [])
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -287,6 +359,17 @@ export default function DigitalTwinManual() {
 
 
   const selectedCameraData = vectors.cameras.find((cam) => cam.id === selectedCamera) || null
+
+  if (isLoading) {
+    return (
+      <div className="relative w-full h-full flex items-center justify-center bg-zinc-950">
+        <div className="text-center">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full border-4 border-cyan-400/20 border-t-cyan-400 animate-spin" />
+          <p className="text-zinc-400 text-sm">Loading your floor plan...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="relative w-full h-full">
