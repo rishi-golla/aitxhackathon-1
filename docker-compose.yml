@@ -1,0 +1,54 @@
+services:
+  vss-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.vss
+    image: vss-engine-custom:latest
+    container_name: vss-engine
+    runtime: nvidia
+    environment:
+      - NGC_API_KEY=${NGC_API_KEY}
+      - VLLM_GPU_MEMORY_UTILIZATION=0.3
+      - VLM_MODEL_TO_USE=cosmos-reason1
+      - MODEL_PATH=ngc:nim/nvidia/cosmos-reason1-7b:1.1-fp8-dynamic
+      - DISABLE_CA_RAG=false
+      - DISABLE_FRONTEND=true
+      - DISABLE_GUARDRAILS=true
+      - DISABLE_CV_PIPELINE=true
+      - REDIS_HOST=127.0.0.1
+      - REDIS_PORT=6379
+      - FRONTEND_PORT=3000
+      - BACKEND_PORT=8000
+      - API_GATEWAY_PORT=8080
+    network_mode: host
+    volumes:
+      - ./data:/data
+      - ./models:/models
+      - ./video_file_frame_getter.py:/opt/nvidia/via/via-engine/vlm_pipeline/video_file_frame_getter.py
+    depends_on:
+      - redis
+
+
+  redis:
+    image: redis/redis-stack-server:7.2.0-v9
+    container_name: vss-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - vss-network
+
+  vst-storage:
+    image: nvcr.io/nvidia/blueprint/vst-storage:2.1.0-25.07.1
+    container_name: vst-storage
+    environment:
+      - VST_STORAGE_PATH=/data
+    volumes:
+      - ./data:/data
+    ports:
+      - "8081:8081"
+    networks:
+      - vss-network
+
+networks:
+  vss-network:
+    driver: bridge
