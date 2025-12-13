@@ -10,15 +10,23 @@
 * **Zero-Shot:** No training required; detects custom hazards via text prompts immediately.
 
 ## 2. Technical Architecture
-* **Hardware:** NVIDIA DGX Spark (Unified Memory Architecture).
+* **Hardware:** NVIDIA DGX Spark (Powered by GB10 Grace Blackwell Superchip).
 * **Frontend:** Electron (React + Vite) - The "Command Center" dashboard.
 * **Backend:** Python (FastAPI) - Runs locally on the DGX.
-* **AI Engine:** * **Vision:** YOLO-World (Zero-Shot Object Detection) via `ultralytics`.
+* **AI Engine:** 
+    * **Vision:** YOLO-World (Zero-Shot Object Detection) via `ultralytics`.
+    * **Optimization:** Leveraging NVIDIA TensorRT for accelerated inference on GB10.
     * **Logic:** Python-based Rule Engine (Hardcoded JSON lookup for hackathon speed).
-* **Communication:** * Video Stream: MJPEG Stream (`http://localhost:8000/video_feed`).
+* **Communication:** 
+    * Video Stream: MJPEG Stream (`http://localhost:8000/video_feed`).
     * Data Stream: JSON Polling (`http://localhost:8000/status`).
 
-## 3. Team Roles & Responsibilities
+## 3. NVIDIA Stack Alignment
+* **Hardware:** Utilizing the **GB10 Grace Blackwell Superchip** for high-performance local inference.
+* **Blueprint Reference:** Architecture inspired by the **NVIDIA VSS (Video Search and Summarization) Blueprint**, adapting the concept of "Video-to-Insight" for industrial safety.
+* **Local Inference:** Fully local execution ensures data privacy and low latency, critical for safety applications, aligned with **NVIDIA NIM** deployment patterns.
+
+## 4. Team Roles & Responsibilities
 
 ### 👤 Dev A: Frontend (Electron) & Product
 **Focus:** The UI, User Experience, and Business Logic.
@@ -36,7 +44,7 @@
 * **Rule Engine:** Implement the logic to cross-reference detected objects with `osha_rules.json`.
 * **API:** expose `/status` endpoint returning the current violation state.
 
-## 4. Development Phases (36-Hour Sprint)
+## 5. Development Phases (36-Hour Sprint)
 
 **Phase 1: The Handshake (Hours 0-4)**
 * [ ] **Dev A:** Electron app launches and displays a blank window.
@@ -57,7 +65,7 @@
 * [ ] **Joint:** Latency optimization (frame skipping if needed).
 * [ ] **Joint:** Dark Mode UI.
 
-## 5. Key Data Structures
+## 6. Key Data Structures
 
 ### `osha_rules.json` (The Source of Truth)
 ```json
