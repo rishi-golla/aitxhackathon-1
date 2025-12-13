@@ -23,6 +23,7 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 .pnpm-debug.log*
+server.log
 
 # OS files
 .DS_Store
@@ -33,7 +34,6 @@ lerna-debug.log*
 ehthumbs.db
 Thumbs.db
 desktop.ini
-node_modules/
 
 # Python
 __pycache__/
@@ -43,10 +43,12 @@ __pycache__/
 .venv/
 venv/
 env/
-.env
 *.egg-info/
-dist/
-build/
+*.py[cod]
+*$py.class
+*.so
+.Python
+ENV/
 
 # Data and cache
 data/
@@ -97,27 +99,8 @@ prisma/migrations/dev.db-journal
 temp/
 tmp/
 
-# Python (if you're using the backend)
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-venv/
-ENV/
-env/
-.venv
-
 # Test files
 test-mongodb.js
-
-# Documentation (optional - remove if you want to commit docs)
-# *.md
-# !README.md
-
-# OS
-.DS_Store
-Thumbs.db
 
 # Test
 .pytest_cache/
@@ -127,9 +110,8 @@ htmlcov/
 # Jupyter
 .ipynb_checkpoints/
 
-# Next.js
-.next/
-out/
-
 # Electron
 dist-electron/
+
+# Archivist index
+archivist_index.json
