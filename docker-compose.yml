@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  safety-copilot:
+    build: .
+    container_name: osha-vision
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,video
+      - VIDEO_SOURCE=0
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8501:8501"  # Streamlit Dashboard
+      - "8000:8000"  # FastAPI Backend
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - ./.alert_cache:/app/.alert_cache
+      # Mount video device for webcam access
+      - /dev/video0:/dev/video0
+    devices:
+      - /dev/video0:/dev/video0
+    privileged: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  # Optional: Run just the backend API
+  backend:
+    build: .
+    container_name: osha-vision-api
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - VIDEO_SOURCE=0
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./logs:/app/logs
+      - /dev/video0:/dev/video0
+    devices:
+      - /dev/video0:/dev/video0
+    privileged: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: ["python", "server/main.py"]
+    profiles:
+      - backend-only
