@@ -1,21 +1,41 @@
-const { app, BrowserWindow } = require("electron");
-const path = require("path");
+const { app, BrowserWindow } = require("electron")
 
-function createWindow() {
-  const win = new BrowserWindow({
-    width: 900,
-    height: 600,
-  });
+let win
 
-  win.loadFile(path.join(__dirname, "../frontend/index.html"));
-}
+app.whenReady().then(() => {
+  win = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  })
 
-app.whenReady().then(createWindow);
+  win.loadURL("http://localhost:3000/dashboard")
+  
+  // Open DevTools in development
+  if (process.env.NODE_ENV !== "production") {
+    win.webContents.openDevTools()
+  }
+})
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
-});
+  if (process.platform !== "darwin") {
+    app.quit()
+  }
+})
 
 app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
-});
+  if (BrowserWindow.getAllWindows().length === 0) {
+    win = new BrowserWindow({
+      width: 1400,
+      height: 900,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+    })
+    win.loadURL("http://localhost:3000/dashboard")
+  }
+})
