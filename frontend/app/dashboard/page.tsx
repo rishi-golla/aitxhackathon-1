@@ -18,13 +18,13 @@ export default function DashboardPage() {
       </section>
       
       {/* Bottom Section - Cameras (Bigger) and Right Sidebar (Smaller) */}
-      <section className="grid grid-cols-[1fr_280px] gap-3 flex-1 min-h-0">
+      <section className="grid grid-cols-[1fr_280px] gap-3 flex-1 min-h-0 overflow-hidden">
         <CamerasPanel />
-        <div className="flex flex-col gap-3 min-h-0">
+        <div className="flex flex-col gap-3 min-h-0 h-full overflow-hidden">
           <div className="shrink-0">
             <AILearningCard />
           </div>
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <RecentActivityCard />
           </div>
         </div>
