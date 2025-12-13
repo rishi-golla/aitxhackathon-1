@@ -49,15 +49,21 @@ export default function AILearningCard() {
   
   // Simulate new violations periodically (for demo)
   useEffect(() => {
+    const timeoutIds: NodeJS.Timeout[] = []
+    
     const violationTimer = setInterval(() => {
       setIsAnimating(true)
       setViolationCount(prev => prev + 1)
       setTotalCost(prev => prev + COST_PER_VIOLATION)
       
-      setTimeout(() => setIsAnimating(false), 600)
+      const timeoutId = setTimeout(() => setIsAnimating(false), 600)
+      timeoutIds.push(timeoutId)
     }, 15000) // New violation every 15 seconds
     
-    return () => clearInterval(violationTimer)
+    return () => {
+      clearInterval(violationTimer)
+      timeoutIds.forEach(id => clearTimeout(id))
+    }
   }, [])
   
   return (
