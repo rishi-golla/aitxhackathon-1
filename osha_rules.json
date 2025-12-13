@@ -1,0 +1,38 @@
+[
+  {
+    "id": "hand_protection_general",
+    "triggers": ["bare_hand", "exposed_skin"],
+    "required_context": ["industrial_machine", "sharp_tool", "chemical_container", "spinning_blade"],
+    "code": "29 CFR 1910.138(a)",
+    "title": "General Requirements - Hand Protection",
+    "legal_text": "Employers shall select and require employees to use appropriate hand protection when employees' hands are exposed to hazards such as those from skin absorption of harmful substances; severe cuts or lacerations; severe abrasions; punctures; chemical burns; thermal burns; and harmful temperature extremes.",
+    "penalty_max": 16131
+  },
+  {
+    "id": "hand_protection_selection",
+    "triggers": ["wrong_glove_type", "damaged_glove"],
+    "required_context": ["industrial_task"],
+    "code": "29 CFR 1910.138(b)",
+    "title": "Selection of Hand Protection",
+    "legal_text": "Employers shall base the selection of the appropriate hand protection on an evaluation of the performance characteristics of the hand protection relative to the task(s) to be performed, conditions present, duration of use, and the hazards and potential hazards identified.",
+    "penalty_max": 16131
+  },
+  {
+    "id": "machine_guarding_types",
+    "triggers": ["unguarded_belt", "exposed_gears", "rotating_parts", "flying_sparks"],
+    "required_context": [],
+    "code": "29 CFR 1910.212(a)(1)",
+    "title": "Machine Guarding - General",
+    "legal_text": "One or more methods of machine guarding shall be provided to protect the operator and other employees in the machine area from hazards such as those created by point of operation, ingoing nip points, rotating parts, flying chips and sparks.",
+    "penalty_max": 16131
+  },
+  {
+    "id": "point_of_operation",
+    "triggers": ["hand_near_blade", "hand_in_machine_zone"],
+    "required_context": ["active_machine"],
+    "code": "29 CFR 1910.212(a)(3)(ii)",
+    "title": "Point of Operation Guarding",
+    "legal_text": "The point of operation of machines whose operation exposes an employee to injury, shall be guarded. The guarding device shall be so designed and constructed as to prevent the operator from having any part of his body in the danger zone during the operating cycle.",
+    "penalty_max": 16131
+  }
+]
