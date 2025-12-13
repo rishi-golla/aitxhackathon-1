@@ -1,1 +1,50 @@
-node_modules
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+.env
+*.egg-info/
+dist/
+build/
+
+# Data and cache
+data/
+logs/
+.alert_cache/
+*.db
+
+# Models (large files)
+models/*.pt
+models/*.engine
+*.onnx
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Next.js
+.next/
+out/
+
+# Electron
+dist-electron/

@@ -1,0 +1,77 @@
+zones:
+  - zone_id: "welding_bay_a"
+    name: "Welding Bay A"
+    zone_type: "ppe_required"
+    polygon:
+      - [100, 100]
+      - [500, 100]
+      - [500, 400]
+      - [100, 400]
+    required_ppe:
+      - "welding_mask"
+      - "safety_gloves"
+      - "safety_vest"
+    osha_reference: "29 CFR 1910.252"
+    description: "Primary welding station requiring full PPE"
+    enabled: true
+
+  - zone_id: "machine_area"
+    name: "Machine Operation Zone"
+    zone_type: "ppe_required"
+    polygon:
+      - [550, 100]
+      - [900, 100]
+      - [900, 350]
+      - [550, 350]
+    required_ppe:
+      - "hardhat"
+      - "safety_glasses"
+      - "safety_vest"
+    max_occupancy: 3
+    osha_reference: "29 CFR 1910.212"
+    description: "Industrial machinery area with moving parts"
+    enabled: true
+
+  - zone_id: "chemical_storage"
+    name: "Chemical Storage"
+    zone_type: "hazard"
+    polygon:
+      - [100, 450]
+      - [300, 450]
+      - [300, 600]
+      - [100, 600]
+    required_ppe:
+      - "safety_glasses"
+      - "gloves"
+    max_occupancy: 2
+    osha_reference: "29 CFR 1910.106"
+    description: "Hazardous chemical storage area"
+    enabled: true
+
+  - zone_id: "electrical_room"
+    name: "Electrical Room"
+    zone_type: "restricted"
+    polygon:
+      - [700, 400]
+      - [900, 400]
+      - [900, 600]
+      - [700, 600]
+    required_ppe:
+      - "hardhat"
+      - "safety_glasses"
+    osha_reference: "29 CFR 1910.303"
+    description: "Restricted electrical equipment area"
+    enabled: true
+
+  - zone_id: "general_floor"
+    name: "General Work Area"
+    zone_type: "safe"
+    polygon:
+      - [350, 450]
+      - [650, 450]
+      - [650, 600]
+      - [350, 600]
+    required_ppe:
+      - "safety_vest"
+    description: "General work floor - basic PPE required"
+    enabled: true
