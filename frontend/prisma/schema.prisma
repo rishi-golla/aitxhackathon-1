@@ -1,0 +1,72 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  password  String
+  fullName  String
+  company   String
+  role      String   @default("operator")
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Camera {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   // Owner of this camera
+  label     String
+  streamUrl String
+  floor     Int
+  position  String   // JSON string: [x, y, z]
+  rotation  String   // JSON string: [x, y, z]
+  status    String   @default("normal") // normal, warning, incident, inactive
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Accident {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  type        String   // crowd, smoke, fall, fire, collision, spill
+  severity    String   // low, medium, high, critical
+  title       String
+  description String
+  cameraId    String
+  cameraName  String
+  floor       Int
+  timestamp   DateTime @default(now())
+  duration    String
+  videoUrl    String
+  status      String   @default("new") // new, reviewing, resolved, archived
+  assignedTo  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model WallSegment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   // Owner of this wall segment
+  floor     Int
+  start     String   // JSON string: [x, y]
+  end       String   // JSON string: [x, y]
+  createdAt DateTime @default(now())
+}
+
+model FloorPlan {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String   @unique // One floor plan per user
+  referenceImage String?  // Base64 encoded image
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

@@ -1,4 +1,24 @@
 {
+    "name": "electron-split-app",
+    "version": "1.0.0",
+    "private": true,
+    "main": "backend/main.js",
+    "scripts": {
+        "dev:next": "cd frontend && npm run dev",
+        "dev:electron": "electron .",
+        "dev": "concurrently \"npm run dev:next\" \"npm run dev:electron\"",
+        "build:next": "cd frontend && npm run build",
+        "start": "electron ."
+    },
+    "dependencies": {
+        "mongosh": "^2.5.10"
+    },
+    "devDependencies": {
+        "@types/react": "^18.2.66",
+        "@types/react-dom": "^18.2.22",
+        "concurrently": "^8.2.0",
+        "electron": "^30.0.0"
+    }
   "name": "electron-split-app",
   "version": "1.0.0",
   "private": true,

@@ -12,7 +12,7 @@ app.whenReady().then(() => {
     },
   })
 
-  win.loadURL("http://localhost:3000/dashboard")
+  win.loadURL("http://localhost:3000/login")
   
   // Open DevTools in development
   if (process.env.NODE_ENV !== "production") {
@@ -36,6 +36,6 @@ app.on("activate", () => {
         contextIsolation: true,
       },
     })
-    win.loadURL("http://localhost:3000/dashboard")
+    win.loadURL("http://localhost:3000/login")
   }
 })

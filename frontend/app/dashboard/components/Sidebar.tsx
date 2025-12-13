@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { usePathname } from 'next/navigation'
+import Link from 'next/link'
 
 const DashboardIcon = () => (
   <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -74,12 +75,12 @@ interface NavItemProps {
   label: string
   icon: React.ReactNode
   active?: boolean
-  onClick?: () => void
+  href: string
 }
 
-const NavItem = ({ label, icon, active, onClick }: NavItemProps) => (
-  <button
-    onClick={onClick}
+const NavItem = ({ label, icon, active, href }: NavItemProps) => (
+  <Link
+    href={href}
     className={`relative flex items-center gap-2.5 px-3 py-2 w-full text-left text-sm font-medium rounded-lg transition-all duration-200 group ${
       active 
         ? 'text-cyan bg-cyan/10 shadow-glow' 
@@ -93,11 +94,11 @@ const NavItem = ({ label, icon, active, onClick }: NavItemProps) => (
       {icon}
     </span>
     <span>{label}</span>
-  </button>
+  </Link>
 )
 
 export default function Sidebar() {
-  const [activeNav, setActiveNav] = useState('dashboard')
+  const pathname = usePathname()
   
   return (
     <aside className="w-60 min-w-60 bg-dark-secondary h-screen flex flex-col border-r border-white/5">
@@ -118,38 +119,20 @@ export default function Sidebar() {
           <NavItem
             label="Dashboard"
             icon={<DashboardIcon />}
-            active={activeNav === 'dashboard'}
-            onClick={() => setActiveNav('dashboard')}
+            active={pathname === '/dashboard'}
+            href="/dashboard"
           />
           <NavItem
             label="Live"
             icon={<LiveIcon />}
-            active={activeNav === 'live'}
-            onClick={() => setActiveNav('live')}
+            active={pathname === '/dashboard/live'}
+            href="/dashboard/live"
           />
           <NavItem
             label="Accidents"
             icon={<AccidentsIcon />}
-            active={activeNav === 'accidents'}
-            onClick={() => setActiveNav('accidents')}
-          />
-          <NavItem
-            label="Video archive"
-            icon={<VideoIcon />}
-            active={activeNav === 'video'}
-            onClick={() => setActiveNav('video')}
-          />
-          <NavItem
-            label="Cameras"
-            icon={<CameraIcon />}
-            active={activeNav === 'cameras'}
-            onClick={() => setActiveNav('cameras')}
-          />
-          <NavItem
-            label="AI policy"
-            icon={<AIIcon />}
-            active={activeNav === 'ai'}
-            onClick={() => setActiveNav('ai')}
+            active={pathname === '/dashboard/accidents'}
+            href="/dashboard/accidents"
           />
         </div>
       </nav>
@@ -161,22 +144,10 @@ export default function Sidebar() {
       <div className="py-3 px-2">
         <div className="space-y-0.5">
           <NavItem
-            label="Support"
-            icon={<SupportIcon />}
-            active={activeNav === 'support'}
-            onClick={() => setActiveNav('support')}
-          />
-          <NavItem
-            label="Settings"
-            icon={<SettingsIcon />}
-            active={activeNav === 'settings'}
-            onClick={() => setActiveNav('settings')}
-          />
-          <NavItem
             label="Profile"
             icon={<ProfileIcon />}
-            active={activeNav === 'profile'}
-            onClick={() => setActiveNav('profile')}
+            active={pathname === '/dashboard/profile'}
+            href="/dashboard/profile"
           />
         </div>
       </div>

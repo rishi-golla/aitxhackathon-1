@@ -9,15 +9,23 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.1",
+    "@prisma/driver-adapter-utils": "^7.1.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.4.2",
+    "bcryptjs": "^3.0.3",
     "framer-motion": "^12.23.26",
+    "jsonwebtoken": "^9.0.3",
+    "mongodb": "^7.0.0",
     "next": "16.0.10",
+    "prisma": "^6.19.1",
     "react": "19.2.1",
     "react-dom": "19.2.1",
     "three": "^0.158.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
