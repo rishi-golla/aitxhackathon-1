@@ -20,6 +20,8 @@ services:
       - FRONTEND_PORT=3000
       - BACKEND_PORT=8000
       - API_GATEWAY_PORT=8080
+      # GStreamer: Boost avdec_h264/h265 rank to ensure libav decoders are used
+      - GST_PLUGIN_FEATURE_RANK=avdec_h264:MAX,avdec_h265:MAX
     network_mode: host
     volumes:
       - ./data:/data

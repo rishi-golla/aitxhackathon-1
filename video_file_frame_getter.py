@@ -1080,12 +1080,22 @@ class VideoFileFrameGetter:
                 logger.info("Audio stream found.")
 
         uridecodebin = None
-        if self._is_live:
+        # Use uridecodebin for both RTSP streams AND local files
+        # This is more reliable than parsebin + decodebin which can fail
+        # with "not-linked" errors when parsebin can't find downstream elements
+        use_uridecodebin_for_files = os.environ.get("VSS_USE_URIDECODEBIN", "true") == "true"
+
+        if self._is_live or use_uridecodebin_for_files:
             uridecodebin = Gst.ElementFactory.make("uridecodebin")
-            uridecodebin.set_property("uri", file_or_rtsp)
+            if self._is_live:
+                uridecodebin.set_property("uri", file_or_rtsp)
+            else:
+                # Convert file path to URI for uridecodebin
+                uridecodebin.set_property("uri", f"file://{file_or_rtsp}")
             pipeline.add(uridecodebin)
             self._uridecodebin = uridecodebin
         else:
+            # Legacy parsebin path (kept for compatibility, disabled by default)
             filesrc = Gst.ElementFactory.make("filesrc")
             filesrc.set_property("location", file_or_rtsp)
             pipeline.add(filesrc)
@@ -1290,17 +1300,13 @@ class VideoFileFrameGetter:
         # format = "NV12"
         capsfilter = Gst.ElementFactory.make("capsfilter")
         self._out_caps_filter = capsfilter
-        capsfilter.set_property(
-            "caps",
-            Gst.Caps.from_string(
-                (
-                    f"video/x-raw(memory:NVMM), format={format},"
-                    f" width={self._frame_width}, height={self._frame_height}"
-                )
-                if self._frame_width and self._frame_height
-                else f"video/x-raw(memory:NVMM), format={format}"
-            ),
-        )
+        # Use NVMM memory only when nvvideoconvert is available, otherwise use system memory
+        use_nvmm = self._videoconvert is not None and hasattr(self._videoconvert, 'get_factory') and \
+                   self._videoconvert.get_factory().get_name() == "nvvideoconvert"
+        caps_str = f"video/x-raw(memory:NVMM), format={format}" if use_nvmm else f"video/x-raw, format={format}"
+        if self._frame_width and self._frame_height:
+            caps_str = f"{caps_str}, width={self._frame_width}, height={self._frame_height}"
+        capsfilter.set_property("caps", Gst.Caps.from_string(caps_str))
         pipeline.add(capsfilter)
 
         self._audio_q1 = None
