@@ -2,23 +2,23 @@ FROM nvcr.io/nvidia/blueprint/vss-engine:2.4.0
 
 USER root
 
-# Install missing GStreamer plugins and dependencies
+# Install ffmpeg and all GStreamer plugins with full codec support
+# Note: The base image has dpkg database entries but missing library files
+# We install the packages, then force reinstall to ensure files are present
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
     gstreamer1.0-libav \
     gstreamer1.0-plugins-ugly \
-    libavcodec60 \
-    libavformat60 \
-    libavutil58 \
-    libmp3lame0 \
-    libx264-164 \
-    libmpeg2-4 \
-    libdvdread8t64 \
+    gstreamer1.0-plugins-bad \
+    libzvbi0t64 \
     libslang2 \
+    libmp3lame0 \
     libflac12t64 \
     libmpg123-0t64 \
     libdca0 \
     libunibreak5 \
     libdvdnav4 \
+    libdvdread8t64 \
     libjack-jackd2-0 \
     libmjpegutils-2.1-0t64 \
     libdirectfb-1.7-7t64 \
@@ -26,18 +26,32 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libjbig0 \
     libzxing3 \
     liblrdf0 \
+    libx264-164 \
     libx265-199 \
-    libraptor2-0 \
-    libpipewire-0.3-0 \
-    libmplex2-2.1-0t64 \
-    libzvbi0t64 \
     && rm -rf /var/lib/apt/lists/*
+
+# Force reinstall critical libraries to ensure .so files are present
+# (Base image has broken dpkg state where packages show installed but files missing)
+RUN apt-get update && apt-get reinstall -y \
+    libzvbi0t64 \
+    libslang2 \
+    libmp3lame0 \
+    libflac12t64 \
+    libmpg123-0t64 \
+    libunibreak5 \
+    libx264-164 \
+    libx265-199 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create symlinks for missing libraries and update cache
+RUN ln -sf /usr/local/lib/python3.12/dist-packages/opencv_python.libs/libvpx-43afa4ba.so.9.0.0 /usr/lib/aarch64-linux-gnu/libvpx.so.9 && \
+    echo "/usr/lib/aarch64-linux-gnu" > /etc/ld.so.conf.d/aarch64.conf && \
+    ldconfig && \
+    rm -rf /root/.cache/gstreamer-1.0 && \
+    mkdir -p /root/.cache/gstreamer-1.0
+
+# Verify H.264 decoder is working (will fail build if not)
+RUN gst-inspect-1.0 avdec_h264 > /dev/null || (echo "ERROR: avdec_h264 not available" && exit 1)
 
 # Fix LD_LIBRARY_PATH to include aarch64 paths
 ENV LD_LIBRARY_PATH="/opt/nvidia/via/lib:/opt/nvidia/deepstream/deepstream/lib:/usr/local/cuda-12/targets/x86_64-linux/lib:/opt/tritonserver/lib/:/usr/lib/x86_64-linux-gnu/:/opt/tritonserver/backends/fil/:/usr/local/lib/python3.12/dist-packages/libcuvs/lib64/:/usr/local/lib/python3.12/dist-packages/libcugraph/lib64/:/usr/local/lib/python3.12/dist-packages/libraft/lib64/:/usr/lib/aarch64-linux-gnu"
-
-# Switch back to default user if needed (check base image user)
-# The base image seems to run as root or via, but we installed as root.
-# We'll leave it as is or switch to 'via' if that's the default.
-# Checking logs, it runs as root (uid 0) mostly?
-# "Initializing VlmProcess-0"
