@@ -98,6 +98,148 @@ def get_timestamp_str(ts):
     )
 
 
+# ============================================================================
+# FFmpeg fallback decoder for when GStreamer pipeline negotiation fails
+# ============================================================================
+
+def ffmpeg_decode_frames(
+    file_path: str,
+    start_sec: float,
+    end_sec: float,
+    num_frames: int,
+    frame_width: int = 0,
+    frame_height: int = 0,
+) -> tuple[list, list[float], str | None]:
+    """Decode video frames using FFmpeg as a fallback when GStreamer fails.
+
+    Args:
+        file_path: Path to the video file
+        start_sec: Start time in seconds
+        end_sec: End time in seconds  
+        num_frames: Target number of frames to extract
+        frame_width: Optional output width (0 = original)
+        frame_height: Optional output height (0 = original)
+
+    Returns:
+        (frames, timestamps, error_msg): List of torch tensors on GPU,
+            corresponding timestamps, and error message (None if success)
+    """
+    import json as _json
+
+    frames = []
+    timestamps = []
+    error_msg = None
+
+    try:
+        # First, probe the video to get duration and frame rate
+        probe_cmd = [
+            "ffprobe", "-v", "quiet", "-print_format", "json",
+            "-show_format", "-show_streams", file_path
+        ]
+        probe_result = subprocess.run(probe_cmd, capture_output=True, text=True, timeout=30)
+        if probe_result.returncode != 0:
+            return [], [], f"FFmpeg probe failed: {probe_result.stderr}"
+
+        probe_info = _json.loads(probe_result.stdout)
+        
+        # Find video stream
+        video_stream = None
+        for stream in probe_info.get("streams", []):
+            if stream.get("codec_type") == "video":
+                video_stream = stream
+                break
+
+        if not video_stream:
+            return [], [], "No video stream found in file"
+
+        # Get video properties
+        src_width = int(video_stream.get("width", 1920))
+        src_height = int(video_stream.get("height", 1080))
+        
+        # Determine output dimensions
+        out_width = frame_width if frame_width > 0 else src_width
+        out_height = frame_height if frame_height > 0 else src_height
+
+        duration = end_sec - start_sec
+        if duration <= 0:
+            duration = float(probe_info.get("format", {}).get("duration", 10))
+
+        # Calculate frame interval for uniform sampling
+        if num_frames <= 0:
+            num_frames = max(1, int(duration))  # ~1 fps default
+
+        # Build ffmpeg command to extract frames
+        # Using select filter to pick specific frames based on timestamp
+        frame_interval = duration / max(num_frames, 1)
+        
+        # Build scale filter
+        scale_filter = f"scale={out_width}:{out_height}" if (frame_width > 0 or frame_height > 0) else ""
+        
+        # For simplicity, extract frames at calculated intervals using fps filter
+        target_fps = num_frames / duration if duration > 0 else 1
+        target_fps = max(0.1, min(target_fps, 30))  # Clamp between 0.1 and 30 fps
+
+        vf_filters = [f"fps={target_fps:.4f}"]
+        if scale_filter:
+            vf_filters.append(scale_filter)
+        vf_string = ",".join(vf_filters)
+
+        ffmpeg_cmd = [
+            "ffmpeg", "-v", "error",
+            "-ss", str(start_sec),
+            "-t", str(duration),
+            "-i", file_path,
+            "-vf", vf_string,
+            "-f", "rawvideo",
+            "-pix_fmt", "rgb24",
+            "-"
+        ]
+
+        logger.info("FFmpeg fallback decode: %s", " ".join(ffmpeg_cmd))
+
+        result = subprocess.run(
+            ffmpeg_cmd,
+            capture_output=True,
+            timeout=120  # 2 minute timeout
+        )
+
+        if result.returncode != 0:
+            stderr_text = result.stderr.decode("utf-8", errors="replace")
+            return [], [], f"FFmpeg decode failed: {stderr_text[:500]}"
+
+        raw_data = result.stdout
+        frame_size = out_width * out_height * 3  # RGB24
+
+        if len(raw_data) < frame_size:
+            return [], [], f"FFmpeg output too small: got {len(raw_data)} bytes, need {frame_size}"
+
+        # Parse raw frames
+        frame_count = len(raw_data) // frame_size
+        logger.info("FFmpeg decoded %d frames (%dx%d)", frame_count, out_width, out_height)
+
+        for i in range(frame_count):
+            offset = i * frame_size
+            frame_bytes = raw_data[offset:offset + frame_size]
+            frame_np = np.frombuffer(frame_bytes, dtype=np.uint8).reshape((out_height, out_width, 3))
+            frame_tensor = torch.from_numpy(frame_np.copy()).to(device="cuda")
+            frames.append(frame_tensor)
+
+            # Calculate approximate timestamp
+            ts = start_sec + (i * frame_interval)
+            timestamps.append(ts)
+
+        if len(frames) == 0:
+            return [], [], "FFmpeg produced no frames"
+
+        logger.info("FFmpeg fallback successfully decoded %d frames", len(frames))
+        return frames, timestamps, None
+
+    except subprocess.TimeoutExpired:
+        return [], [], "FFmpeg decode timed out"
+    except Exception as e:
+        return [], [], f"FFmpeg fallback error: {str(e)}"
+
+
 class ToCHW:
     """
     Converts tensor from HWC (interleaved) to CHW (planar)
@@ -1065,19 +1207,35 @@ class VideoFileFrameGetter:
                 selff._udpsrc = elem
 
         def cb_newpad_decodebin(uridecodebin, uridecodebin_pad, self):
-            caps = uridecodebin_pad.get_current_caps()
+            # uridecodebin can expose multiple pad types during autoplug.
+            # Only link decoded raw pads; linking compressed pads (e.g., video/x-h264)
+            # into videoconvert/capsfilter will fail caps negotiation (not-negotiated).
+            caps = uridecodebin_pad.get_current_caps() or uridecodebin_pad.query_caps(None)
+            if not caps or caps.get_size() == 0:
+                return
+
             gststruct = caps.get_structure(0)
-            gstname = gststruct.get_name()
-            if gstname.find("video") != -1:
+            gstname = gststruct.get_name()  # e.g., video/x-raw, audio/x-raw, video/x-h264
+            caps_str = caps.to_string()
+            logger.debug("uridecodebin pad-added caps=%s", caps_str)
+
+            if gstname == "video/x-raw" or caps_str.startswith("video/x-raw"):
                 uridecodebin_pad.link(self._q1.get_static_pad("sink"))
-                logger.info("Video stream found.")
-            if gstname.find("audio") != -1 and self._enable_audio and self._audio_q1:
+                logger.info("Video stream found (raw).")
+                return
+
+            if (
+                (gstname == "audio/x-raw" or caps_str.startswith("audio/x-raw"))
+                and self._enable_audio
+                and self._audio_q1
+            ):
                 self._audio_present = True
                 with self._audio_present_cv:
                     self._audio_present_cv.notify()
                 self._audio_eos = False
                 uridecodebin_pad.link(self._audio_q1.get_static_pad("sink"))
-                logger.info("Audio stream found.")
+                logger.info("Audio stream found (raw).")
+                return
 
         uridecodebin = None
         # Use uridecodebin for both RTSP streams AND local files
@@ -1231,7 +1389,19 @@ class VideoFileFrameGetter:
                     enc_src_pad.add_probe(Gst.PadProbeType.BUFFER, self._image_enc_probe, self)
             pipeline.add(jpegenc)
         else:
+            # When DeepStream elements are missing (e.g., on some aarch64 builds),
+            # forcing GBR/NVMM caps can break caps negotiation inside decodebin.
+            # Use RGB in the software path and let preprocessing handle normalization.
             format = "GBR" if self._do_preprocess else "RGB"
+            try:
+                if (
+                    self._videoconvert is not None
+                    and hasattr(self._videoconvert, "get_factory")
+                    and self._videoconvert.get_factory().get_name() != "nvvideoconvert"
+                ):
+                    format = "RGB"
+            except Exception:
+                format = "RGB"
             pass
 
         # Add parallel encoding pipeline for saving images to disk
@@ -1456,21 +1626,45 @@ class VideoFileFrameGetter:
             else:
                 # Buffer contains raw frame
 
-                # Extract GPU memory pointer and create tensor from it using
-                # DeepStream Python Bindings and cupy
-                _, shape, strides, dataptr, size = pyds.get_nvds_buf_surface_gpu(hash(buffer), 0)
-                ctypes.pythonapi.PyCapsule_GetPointer.restype = ctypes.c_void_p
-                ctypes.pythonapi.PyCapsule_GetPointer.argtypes = [ctypes.py_object, ctypes.c_char_p]
-                owner = None
-                c_data_ptr = ctypes.pythonapi.PyCapsule_GetPointer(dataptr, None)
-                unownedmem = cp.cuda.UnownedMemory(c_data_ptr, size, owner)
-                memptr = cp.cuda.MemoryPointer(unownedmem, 0)
-                n_frame_gpu = cp.ndarray(
-                    shape=shape, dtype=np.uint8, memptr=memptr, strides=strides, order="C"
-                )
-                image_tensor = torch.tensor(
-                    n_frame_gpu, dtype=torch.uint8, requires_grad=False, device="cuda"
-                )
+                # Preferred: Extract GPU memory pointer and create tensor from it using
+                # DeepStream Python Bindings and cupy.
+                # Fallback: Use CPU-mapped bytes when NVMM/pyds isn't available.
+                try:
+                    _, shape, strides, dataptr, size = pyds.get_nvds_buf_surface_gpu(
+                        hash(buffer), 0
+                    )
+                    ctypes.pythonapi.PyCapsule_GetPointer.restype = ctypes.c_void_p
+                    ctypes.pythonapi.PyCapsule_GetPointer.argtypes = [
+                        ctypes.py_object,
+                        ctypes.c_char_p,
+                    ]
+                    owner = None
+                    c_data_ptr = ctypes.pythonapi.PyCapsule_GetPointer(dataptr, None)
+                    unownedmem = cp.cuda.UnownedMemory(c_data_ptr, size, owner)
+                    memptr = cp.cuda.MemoryPointer(unownedmem, 0)
+                    n_frame_gpu = cp.ndarray(
+                        shape=shape,
+                        dtype=np.uint8,
+                        memptr=memptr,
+                        strides=strides,
+                        order="C",
+                    )
+                    image_tensor = torch.tensor(
+                        n_frame_gpu,
+                        dtype=torch.uint8,
+                        requires_grad=False,
+                        device="cuda",
+                    )
+                except Exception:
+                    # Assume RGB-packed output (see capsfilter selection) and copy before unmap.
+                    frame_bytes = np.frombuffer(mapinfo.data, dtype=np.uint8).copy()
+                    expected = int(width) * int(height) * 3
+                    if frame_bytes.size >= expected:
+                        frame_bytes = frame_bytes[:expected]
+                        frame_np = frame_bytes.reshape((int(height), int(width), 3))
+                        image_tensor = torch.from_numpy(frame_np).to(device="cuda")
+                    else:
+                        image_tensor = torch.from_numpy(frame_bytes).to(device="cuda")
 
             # Cache the pre-processed frame / jpeg and its timestamp. Convert
             # the timestamps from nanoseconds to seconds.
@@ -1707,10 +1901,16 @@ class VideoFileFrameGetter:
                 out_pad_height *= shortest_edge[1] / out_height
                 out_width, out_height = shortest_edge
 
+            # Avoid forcing NVMM/GBR caps when DeepStream elements are unavailable.
+            out_caps_base = (
+                f"video/x-raw(memory:NVMM), format={format}"
+                if use_nvmm
+                else f"video/x-raw, format={format}"
+            )
             self._out_caps_filter.set_property(
                 "caps",
                 Gst.Caps.from_string(
-                    f"video/x-raw(memory:NVMM), format=GBR, width={out_width}, height={out_height}"
+                    f"{out_caps_base}, width={out_width}, height={out_height}"
                 ),
             )
 
@@ -3393,6 +3593,46 @@ class VideoFileFrameGetter:
             chunk,
             self._gpu_id,
         )
+
+        # FFmpeg fallback: if GStreamer produced no frames but there's an error,
+        # try decoding with FFmpeg as a fallback
+        with self._err_msg_lock:
+            gst_err_msg = self._err_msg
+
+        if len(self._cached_frames) == 0 and gst_err_msg and "not-negotiated" in str(gst_err_msg):
+            logger.warning(
+                "GStreamer decode failed with negotiation error, trying FFmpeg fallback for chunk %s",
+                chunk,
+            )
+            # Determine target frame count from frame selector
+            target_frames = getattr(self._frame_selector, "_num_frames", 8)
+            if hasattr(self._frame_selector, "_selected_pts_array"):
+                target_frames = max(target_frames, len(self._frame_selector._selected_pts_array) + 1)
+
+            # Use the first file in the chunk
+            file_path = chunk.file.split(";")[0]
+            start_sec = chunk.start_pts / 1e9
+            end_sec = chunk.end_pts / 1e9
+
+            ff_frames, ff_pts, ff_err = ffmpeg_decode_frames(
+                file_path=file_path,
+                start_sec=start_sec,
+                end_sec=end_sec,
+                num_frames=target_frames,
+                frame_width=self._frame_width_orig,
+                frame_height=self._frame_height_orig,
+            )
+
+            if ff_frames and not ff_err:
+                self._cached_frames = ff_frames
+                self._cached_frames_pts = ff_pts
+                # Clear the GStreamer error since FFmpeg succeeded
+                with self._err_msg_lock:
+                    self._err_msg = None
+                logger.info("FFmpeg fallback successfully decoded %d frames", len(ff_frames))
+            else:
+                logger.error("FFmpeg fallback also failed: %s", ff_err)
+
         if len(self._cached_frames) == 0:
             logger.warning("No frames found for chunk %s", chunk)
         preprocessed_frames = self._preprocess(self._cached_frames)

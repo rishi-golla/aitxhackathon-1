@@ -41,6 +41,7 @@ RUN apt-get update && apt-get reinstall -y \
     libunibreak5 \
     libx264-164 \
     libx265-199 \
+    libjack-jackd2-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create symlinks for missing libraries and update cache
