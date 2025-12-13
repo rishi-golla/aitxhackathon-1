@@ -1,0 +1,79 @@
+cameras:
+  - source: 0
+    name: Main Camera
+    fps: 30
+    resolution:
+      - 1920
+      - 1080
+    enabled: true
+    buffer_size: 10
+
+detection:
+  model: yolov8s-worldv2
+  confidence: 0.3
+  device: auto
+  classes:
+    - person
+    - worker
+    - hardhat
+    - safety helmet
+    - safety vest
+    - high visibility vest
+    - safety glasses
+    - goggles
+    - face shield
+    - welding mask
+    - gloves
+    - safety gloves
+    - bare hands
+    - forklift
+    - machinery
+    - industrial machine
+    - conveyor belt
+    - ladder
+    - chemical container
+    - fire extinguisher
+  tensorrt: false
+  enable_tracking: false
+
+vlm:
+  model: Qwen/Qwen2.5-VL-7B-Instruct
+  quantization: 4bit
+  max_tokens: 512
+  temperature: 0.3
+  enabled: true
+  device_map: auto
+
+rag:
+  documents_path: data/osha_standards
+  chunk_size: 512
+  chunk_overlap: 50
+  embedding_model: BAAI/bge-small-en-v1.5
+  top_k: 3
+  index_path: data/osha_index
+
+alerts:
+  engine: gtts
+  voice: en
+  rate: 1.0
+  cooldown_seconds: 30
+  enabled: true
+  cache_dir: .alert_cache
+
+dashboard:
+  host: 0.0.0.0
+  port: 8501
+  refresh_rate: 0.5
+  theme: dark
+
+agents:
+  perception_enabled: true
+  policy_enabled: true
+  coach_enabled: true
+  max_analysis_time_ms: 3000
+  model_backend: local
+
+zones_config: config/zones.yaml
+database_path: data/violations.db
+log_level: INFO
+debug: false
