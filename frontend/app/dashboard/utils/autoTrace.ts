@@ -267,8 +267,11 @@ function linesToWalls(lines: Line[], width: number, height: number, floor: numbe
     const worldX2 = (line.x2 - centerX) * worldScale
     const worldZ2 = (line.y2 - centerY) * worldScale
     
+    // Create stable ID based on coordinates so React can track the same wall across renders
+    const stableId = `wall-${floor}-${worldX1.toFixed(3)}-${worldZ1.toFixed(3)}-${worldX2.toFixed(3)}-${worldZ2.toFixed(3)}`
+    
     walls.push({
-      id: `wall-auto-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: stableId,
       start: [worldX1, worldZ1],
       end: [worldX2, worldZ2],
       floor,

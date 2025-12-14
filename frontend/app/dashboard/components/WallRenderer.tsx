@@ -19,7 +19,7 @@ export default function WallRenderer({ walls, currentFloor }: WallRendererProps)
 
   return (
     <>
-      {visibleWalls.map((wall, index) => {
+      {visibleWalls.map((wall) => {
         const [x1, z1] = wall.start
         const [x2, z2] = wall.end
         
@@ -41,11 +41,8 @@ export default function WallRenderer({ walls, currentFloor }: WallRendererProps)
           ? Math.max(0.3, 1 - (distanceFromCamera - fadeStart) / (maxDistance - fadeStart))
           : 1
 
-        // Create unique key from wall coordinates
-        const wallKey = `wall-${wall.floor}-${x1.toFixed(2)}-${z1.toFixed(2)}-${x2.toFixed(2)}-${z2.toFixed(2)}-${index}`
-
         return (
-          <group key={wallKey}>
+          <group key={wall.id}>
             {/* Wall solid - muted to let cameras stand out */}
             <mesh position={[midX, wallHeight / 2 + elevation, midZ]} rotation={[0, angle, 0]}>
               <boxGeometry args={[length, wallHeight, wallThickness]} />
@@ -89,4 +86,3 @@ export default function WallRenderer({ walls, currentFloor }: WallRendererProps)
     </>
   )
 }
-
