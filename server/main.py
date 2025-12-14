@@ -132,23 +132,20 @@ model.set_classes([
 print("YOLO-World model ready.")
 
 # --- 4b. Initialize NVIDIA NIM for Video Summarization (DGX Spark Superpower) ---
-# Using NVIDIA Cosmos-Reason1 (7B VLM) via NIM API
+# Using NVIDIA Cosmos-Reason1 (7B VLM) via LOCAL NIM container on DGX Spark
+# Default: localhost:8001 (NIM container runs separately from this FastAPI server on :8000)
 nim_client = None
-NIM_API_KEY = os.environ.get("NVIDIA_API_KEY", os.environ.get("NIM_API_KEY", ""))
-NIM_BASE_URL = os.environ.get("NIM_BASE_URL", "https://integrate.api.nvidia.com/v1")
+NIM_BASE_URL = os.environ.get("NIM_BASE_URL", "http://localhost:8001/v1")
 
 try:
     from openai import OpenAI
-    if NIM_API_KEY:
-        nim_client = OpenAI(
-            base_url=NIM_BASE_URL,
-            api_key=NIM_API_KEY
-        )
-        print(f"NVIDIA NIM client initialized (Cosmos-Reason1 7B VLM)")
-        print(f"  Base URL: {NIM_BASE_URL}")
-    else:
-        print("Warning: NVIDIA_API_KEY not set. NIM video summarization disabled.")
-        print("  Set NVIDIA_API_KEY environment variable to enable Cosmos-Reason1.")
+    nim_client = OpenAI(
+        base_url=NIM_BASE_URL,
+        api_key="not-needed-for-local"  # Local NIM doesn't require API key
+    )
+    print(f"NVIDIA NIM client initialized (LOCAL - Cosmos-Reason1 7B VLM)")
+    print(f"  Base URL: {NIM_BASE_URL}")
+    print(f"  NOTE: Ensure NIM container is running: docker run -p 8001:8000 nvcr.io/nim/nvidia/cosmos-reason1-7b")
 except ImportError:
     print("Warning: openai package not installed. Run: pip install openai")
     print("Video summarization will use YOLO detections as fallback.")
