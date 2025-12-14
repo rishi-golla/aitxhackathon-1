@@ -1,13 +1,13 @@
-﻿// Hardcoded data - shared across all instances
-// This file contains the default layout that everyone sees
+// Hardcoded data for cameras, walls, and floor plan
+// This is the default data that loads for everyone when they open the app
 
 export interface Camera {
   id: string
   label: string
   streamUrl: string
   floor: number
-  position: string // JSON string: [x, y, z]
-  rotation: string // JSON string: [x, y, z]
+  position: string // JSON stringified [x, y, z]
+  rotation: string // JSON stringified [x, y, z]
   status: 'normal' | 'warning' | 'incident' | 'inactive'
   active: boolean
 }
@@ -15,24 +15,22 @@ export interface Camera {
 export interface WallSegment {
   id: string
   floor: number
-  start: string // JSON string: [x, y]
-  end: string   // JSON string: [x, y]
+  start: string // JSON stringified [x, z]
+  end: string // JSON stringified [x, z]
 }
 
 export interface FloorPlan {
   referenceImage: string | null
 }
 
-// Pre-placed cameras - Positioned strategically for warehouse layout
-// The 3D scene normalizes the floor plan to roughly -7 to +7 on X axis and -3 to +3 on Z axis
-// Cameras are placed at key monitoring points
+// Default hardcoded cameras (7 cameras, one red/incident)
 export const HARDCODED_CAMERAS: Camera[] = [
   {
     id: 'cam-entrance',
     label: 'Main Entrance',
     streamUrl: 'rtsp://demo.com/stream1',
     floor: 1,
-    position: JSON.stringify([-5, 0, 2.5]), // Top left - entrance area
+    position: JSON.stringify([-4.5, 0, 1.8]), // Top left (within layout)
     rotation: JSON.stringify([0, 0, 0]),
     status: 'normal',
     active: true,
@@ -42,7 +40,27 @@ export const HARDCODED_CAMERAS: Camera[] = [
     label: 'Warehouse North',
     streamUrl: 'rtsp://demo.com/stream2',
     floor: 1,
-    position: JSON.stringify([0, 0, 2.5]), // Top center - main warehouse area
+    position: JSON.stringify([-2, 0, 1.8]), // Top center-left (within layout)
+    rotation: JSON.stringify([0, 0, 0]),
+    status: 'normal',
+    active: true,
+  },
+  {
+    id: 'cam-warehouse-center',
+    label: 'Warehouse Center',
+    streamUrl: 'rtsp://demo.com/stream3',
+    floor: 1,
+    position: JSON.stringify([0, 0, 1.5]), // Top center (within layout)
+    rotation: JSON.stringify([0, 0, 0]),
+    status: 'normal',
+    active: true,
+  },
+  {
+    id: 'cam-warehouse-east',
+    label: 'Warehouse East',
+    streamUrl: 'rtsp://demo.com/stream4',
+    floor: 1,
+    position: JSON.stringify([4, 0, 1.8]), // Top right (within layout)
     rotation: JSON.stringify([0, 0, 0]),
     status: 'normal',
     active: true,
@@ -50,9 +68,9 @@ export const HARDCODED_CAMERAS: Camera[] = [
   {
     id: 'cam-warehouse-south',
     label: 'Warehouse South',
-    streamUrl: 'rtsp://demo.com/stream3',
+    streamUrl: 'rtsp://demo.com/stream5',
     floor: 1,
-    position: JSON.stringify([0, 0, -2.5]), // Bottom center - warehouse floor
+    position: JSON.stringify([-1.5, 0, -1.2]), // Bottom left (within layout)
     rotation: JSON.stringify([0, 0, 0]),
     status: 'normal',
     active: true,
@@ -60,55 +78,68 @@ export const HARDCODED_CAMERAS: Camera[] = [
   {
     id: 'cam-loading-dock',
     label: 'Loading Dock',
-    streamUrl: 'rtsp://demo.com/stream4',
+    streamUrl: 'rtsp://demo.com/stream6',
     floor: 1,
-    position: JSON.stringify([5, 0, -2.5]), // Bottom right - loading area
+    position: JSON.stringify([2, 0, -1.8]), // Bottom center-right (within layout)
     rotation: JSON.stringify([0, 0, 0]),
     status: 'warning',
     active: true,
   },
+  {
+    id: 'cam-hazard-zone',
+    label: 'Hazard Zone - ALERT',
+    streamUrl: 'rtsp://demo.com/stream7',
+    floor: 1,
+    position: JSON.stringify([4.5, 0, -1.8]), // Bottom right (within layout)
+    rotation: JSON.stringify([0, 0, 0]),
+    status: 'incident', // RED camera
+    active: true,
+  },
 ]
 
-// Default walls (empty - will be auto-traced from floor plan)
+// Default hardcoded walls (empty by default, will auto-trace from image)
 export const HARDCODED_WALLS: WallSegment[] = []
 
-// Your uploaded floor plan
-// Using the download.jpg file from the root directory
+// Default hardcoded floor plan
 export const HARDCODED_FLOORPLAN: FloorPlan = {
   referenceImage: '/download.jpg', // Path to your floor plan image
 }
 
-// In-memory storage that persists during app runtime
-let runtimeCameras: Camera[] = [...HARDCODED_CAMERAS]
-let runtimeWalls: WallSegment[] = [...HARDCODED_WALLS]
-let runtimeFloorPlan: FloorPlan = { ...HARDCODED_FLOORPLAN }
+// In-memory storage (can be updated at runtime)
+let currentCameras: Camera[] = [...HARDCODED_CAMERAS]
+let currentWalls: WallSegment[] = [...HARDCODED_WALLS]
+let currentFloorPlan: FloorPlan = { ...HARDCODED_FLOORPLAN }
 
+// Getter functions
 export function getCameras(): Camera[] {
-  return runtimeCameras
-}
-
-export function setCameras(cameras: Camera[]) {
-  runtimeCameras = cameras
+  return currentCameras.length > 0 ? currentCameras : HARDCODED_CAMERAS
 }
 
 export function getWalls(): WallSegment[] {
-  return runtimeWalls
-}
-
-export function setWalls(walls: WallSegment[]) {
-  runtimeWalls = walls
+  return currentWalls.length > 0 ? currentWalls : HARDCODED_WALLS
 }
 
 export function getFloorPlan(): FloorPlan {
-  return runtimeFloorPlan
+  return currentFloorPlan.referenceImage ? currentFloorPlan : HARDCODED_FLOORPLAN
 }
 
-export function setFloorPlan(floorPlan: FloorPlan) {
-  runtimeFloorPlan = floorPlan
+// Setter functions
+export function setCameras(cameras: Camera[]): void {
+  currentCameras = cameras.length > 0 ? cameras : HARDCODED_CAMERAS
 }
 
-export function resetToDefaults() {
-  runtimeCameras = [...HARDCODED_CAMERAS]
-  runtimeWalls = [...HARDCODED_WALLS]
-  runtimeFloorPlan = { ...HARDCODED_FLOORPLAN }
+export function setWalls(walls: WallSegment[]): void {
+  currentWalls = walls
 }
+
+export function setFloorPlan(floorPlan: FloorPlan): void {
+  currentFloorPlan = floorPlan
+}
+
+// Reset to defaults
+export function resetToDefaults(): void {
+  currentCameras = [...HARDCODED_CAMERAS]
+  currentWalls = [...HARDCODED_WALLS]
+  currentFloorPlan = { ...HARDCODED_FLOORPLAN }
+}
+

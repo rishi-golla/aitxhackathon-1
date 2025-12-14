@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { HARDCODED_CAMERAS } from '@/lib/hardcoded-data'
 
 interface Camera {
   id: string
@@ -215,7 +216,17 @@ const CameraFeedCard = ({ camera, layout, hasViolation }: { camera: Camera; layo
 export default function LivePage() {
   const [layout, setLayout] = useState<'grid' | 'list'>('grid')
   const [selectedFloor, setSelectedFloor] = useState<number | 'all'>('all')
-  const [cameras, setCameras] = useState<Camera[]>([])
+  // Initialize with hardcoded cameras immediately
+  const [cameras, setCameras] = useState<Camera[]>(() => {
+    return HARDCODED_CAMERAS.map((cam) => ({
+      id: cam.id,
+      label: cam.label,
+      streamUrl: cam.streamUrl,
+      floor: cam.floor,
+      active: cam.active,
+      status: cam.status,
+    }))
+  })
   const [violations, setViolations] = useState<Violation[]>([])
   const [backendConnected, setBackendConnected] = useState(false)
 
@@ -230,7 +241,7 @@ export default function LivePage() {
           const data = await response.json()
           setBackendConnected(true)
 
-          if (data.cameras && Array.isArray(data.cameras)) {
+          if (data.cameras && Array.isArray(data.cameras) && data.cameras.length > 0) {
             const loadedCameras: Camera[] = data.cameras.map((cam: any) => ({
               id: cam.id,
               label: cam.label,
@@ -241,6 +252,8 @@ export default function LivePage() {
             }))
             setCameras(loadedCameras)
             console.log(`✅ Loaded ${loadedCameras.length} cameras from Python backend`)
+          } else {
+            console.log('⚠️ Backend returned no cameras, preserving existing hardcoded cameras.')
           }
         } else {
           console.warn('Python backend not available, falling back to user API')
@@ -273,9 +286,9 @@ export default function LivePage() {
 
         const data = await response.json()
 
-        if (data.cameras && Array.isArray(data.cameras)) {
+        if (data.cameras && Array.isArray(data.cameras) && data.cameras.length > 0) {
           const loadedCameras: Camera[] = data.cameras.map((cam: any) => ({
-            id: cam.id,
+            id: cam.id || `cam-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             label: cam.label,
             streamUrl: cam.streamUrl,
             floor: cam.floor,
@@ -284,6 +297,22 @@ export default function LivePage() {
           }))
           setCameras(loadedCameras)
           console.log(`✅ Loaded ${loadedCameras.length} cameras from user API`)
+        } else {
+          console.log('⚠️ API returned no cameras, preserving existing hardcoded cameras.')
+          // Ensure we have hardcoded cameras if API returns empty
+          setCameras(prevCameras => {
+            if (prevCameras.length === 0) {
+              return HARDCODED_CAMERAS.map((cam) => ({
+                id: cam.id,
+                label: cam.label,
+                streamUrl: cam.streamUrl,
+                floor: cam.floor,
+                active: cam.active,
+                status: cam.status,
+              }))
+            }
+            return prevCameras
+          })
         }
       } catch (error) {
         console.error('Failed to load cameras:', error)

@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic'
 import { WallSegment, CameraNode, FloorPlanVectors, InteractionMode } from '../types/floorplan'
 import { autoTraceWalls } from '../utils/autoTrace'
 import CameraStatusLegend from './CameraStatusLegend'
+import { HARDCODED_CAMERAS, HARDCODED_WALLS, HARDCODED_FLOORPLAN } from '@/lib/hardcoded-data'
 
 const FactorySceneManual = dynamic(() => import('./FactorySceneManual'), { 
   ssr: false,
@@ -16,33 +17,36 @@ const FactorySceneManual = dynamic(() => import('./FactorySceneManual'), {
   )
 })
 
-// Load vectors from API
+// Load vectors from API with hardcoded fallback
 async function loadVectors(): Promise<FloorPlanVectors> {
-  if (typeof window === 'undefined') return { walls: [], cameras: [], referenceImage: null }
+  if (typeof window === 'undefined') {
+    // Return hardcoded data for SSR
+    return {
+      walls: HARDCODED_WALLS.map(w => ({
+        id: w.id,
+        start: JSON.parse(w.start),
+        end: JSON.parse(w.end),
+        floor: w.floor,
+      })),
+      cameras: HARDCODED_CAMERAS.map(c => ({
+        id: c.id,
+        label: c.label,
+        streamUrl: c.streamUrl,
+        floor: c.floor,
+        position: JSON.parse(c.position),
+        rotation: JSON.parse(c.rotation),
+        active: c.active,
+        status: c.status || 'normal',
+      })),
+      referenceImage: HARDCODED_FLOORPLAN.referenceImage,
+    }
+  }
   
   try {
     const token = localStorage.getItem('token')
-    if (!token) return { walls: [], cameras: [], referenceImage: null }
-
-    const response = await fetch('/api/user/data', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    })
-
-    if (!response.ok) return { walls: [], cameras: [], referenceImage: null }
-
-    const data = await response.json()
     
-    // Convert API format to local format
-    const walls: WallSegment[] = (data.walls || []).map((w: any) => ({
-      id: w.id,
-      start: JSON.parse(w.start),
-      end: JSON.parse(w.end),
-      floor: w.floor,
-    }))
-    
-    const cameras: CameraNode[] = (data.cameras || []).map((c: any) => ({
+    // Convert hardcoded to local format as fallback
+    const hardcodedCameras: CameraNode[] = HARDCODED_CAMERAS.map(c => ({
       id: c.id,
       label: c.label,
       streamUrl: c.streamUrl,
@@ -53,14 +57,87 @@ async function loadVectors(): Promise<FloorPlanVectors> {
       status: c.status || 'normal',
     }))
     
+    const hardcodedWalls: WallSegment[] = HARDCODED_WALLS.map(w => ({
+      id: w.id,
+      start: JSON.parse(w.start),
+      end: JSON.parse(w.end),
+      floor: w.floor,
+    }))
+
+    if (!token) {
+      return {
+        walls: hardcodedWalls,
+        cameras: hardcodedCameras,
+        referenceImage: HARDCODED_FLOORPLAN.referenceImage,
+      }
+    }
+
+    const response = await fetch('/api/user/data', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok) {
+      return {
+        walls: hardcodedWalls,
+        cameras: hardcodedCameras,
+        referenceImage: HARDCODED_FLOORPLAN.referenceImage,
+      }
+    }
+
+    const data = await response.json()
+    
+    // Convert API format to local format
+    const walls: WallSegment[] = (data.walls && data.walls.length > 0) 
+      ? data.walls.map((w: any) => ({
+          id: w.id,
+          start: JSON.parse(w.start),
+          end: JSON.parse(w.end),
+          floor: w.floor,
+        }))
+      : hardcodedWalls
+    
+    const cameras: CameraNode[] = (data.cameras && data.cameras.length > 0)
+      ? data.cameras.map((c: any) => ({
+          id: c.id,
+          label: c.label,
+          streamUrl: c.streamUrl,
+          floor: c.floor,
+          position: JSON.parse(c.position),
+          rotation: JSON.parse(c.rotation),
+          active: c.active,
+          status: c.status || 'normal',
+        }))
+      : hardcodedCameras
+    
     return {
       walls,
       cameras,
-      referenceImage: data.floorPlan?.referenceImage || null,
+      referenceImage: data.floorPlan?.referenceImage || HARDCODED_FLOORPLAN.referenceImage,
     }
   } catch (error) {
     console.error('Failed to load vectors:', error)
-    return { walls: [], cameras: [], referenceImage: null }
+    // Return hardcoded data on error
+    return {
+      walls: HARDCODED_WALLS.map(w => ({
+        id: w.id,
+        start: JSON.parse(w.start),
+        end: JSON.parse(w.end),
+        floor: w.floor,
+      })),
+      cameras: HARDCODED_CAMERAS.map(c => ({
+        id: c.id,
+        label: c.label,
+        streamUrl: c.streamUrl,
+        floor: c.floor,
+        position: JSON.parse(c.position),
+        rotation: JSON.parse(c.rotation),
+        active: c.active,
+        status: c.status || 'normal',
+      })),
+      referenceImage: HARDCODED_FLOORPLAN.referenceImage,
+    }
   }
 }
 
@@ -315,7 +392,26 @@ interface BackendCamera {
 const BACKEND_URL = 'http://localhost:8000'
 
 export default function DigitalTwinManual() {
-  const [vectors, setVectors] = useState<FloorPlanVectors>({ walls: [], cameras: [], referenceImage: null })
+  // Initialize with hardcoded cameras immediately
+  const [vectors, setVectors] = useState<FloorPlanVectors>(() => ({
+    walls: HARDCODED_WALLS.map(w => ({
+      id: w.id,
+      start: JSON.parse(w.start),
+      end: JSON.parse(w.end),
+      floor: w.floor,
+    })),
+    cameras: HARDCODED_CAMERAS.map(c => ({
+      id: c.id,
+      label: c.label,
+      streamUrl: c.streamUrl,
+      floor: c.floor,
+      position: JSON.parse(c.position),
+      rotation: JSON.parse(c.rotation),
+      active: c.active,
+      status: c.status || 'normal',
+    })),
+    referenceImage: HARDCODED_FLOORPLAN.referenceImage,
+  }))
   const [currentFloor, setCurrentFloor] = useState(1)
   const [mode, setMode] = useState<InteractionMode>('view')
   const [selectedCamera, setSelectedCamera] = useState<string | null>(null)
@@ -341,7 +437,29 @@ export default function DigitalTwinManual() {
 
   useEffect(() => {
     loadVectors().then(async (data) => {
-      setVectors(data)
+      // Preserve existing cameras if we have them, otherwise use loaded data
+      setVectors(prevVectors => {
+        const cameras = (prevVectors.cameras && prevVectors.cameras.length > 0)
+          ? prevVectors.cameras  // Keep existing cameras
+          : (data.cameras && data.cameras.length > 0)
+            ? data.cameras
+            : HARDCODED_CAMERAS.map(c => ({
+                id: c.id,
+                label: c.label,
+                streamUrl: c.streamUrl,
+                floor: c.floor,
+                position: JSON.parse(c.position),
+                rotation: JSON.parse(c.rotation),
+                active: c.active,
+                status: c.status || 'normal',
+              }))
+        
+        return {
+          cameras,
+          walls: (data.walls && data.walls.length > 0) ? data.walls : prevVectors.walls,
+          referenceImage: data.referenceImage || prevVectors.referenceImage || HARDCODED_FLOORPLAN.referenceImage,
+        }
+      })
       setIsLoading(false)
       
       // Auto-trace walls if floor plan exists but no walls
@@ -427,6 +545,25 @@ export default function DigitalTwinManual() {
     }
   }
 
+  const handleClearCameras = () => {
+    if (confirm('Reset cameras to default? This will restore the 7 hardcoded cameras.')) {
+      // Restore hardcoded cameras instead of clearing
+      const hardcodedCameras: CameraNode[] = HARDCODED_CAMERAS.map(c => ({
+        id: c.id,
+        label: c.label,
+        streamUrl: c.streamUrl,
+        floor: c.floor,
+        position: JSON.parse(c.position),
+        rotation: JSON.parse(c.rotation),
+        active: c.active,
+        status: c.status || 'normal',
+      }))
+      const updatedVectors = { ...vectors, cameras: hardcodedCameras }
+      setVectors(updatedVectors)
+      saveVectors(updatedVectors)
+    }
+  }
+
   const handleClearWalls = () => {
     if (confirm('Clear all walls?')) {
       const updatedVectors = { ...vectors, walls: [] }
@@ -504,23 +641,6 @@ export default function DigitalTwinManual() {
             </button>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
 
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900/90 border border-white/10 rounded-lg backdrop-blur-xl shadow-lg">
-              <span className="text-sm text-zinc-400">Floor:</span>
-              {[1, 2, 3, 4, 5].map((floor) => (
-                <button
-                  key={floor}
-                  onClick={() => setCurrentFloor(floor)}
-                  className={`w-8 h-8 rounded-lg text-sm font-medium transition-all ${
-                    currentFloor === floor
-                      ? 'bg-cyan-400 text-zinc-900 shadow-[0_0_12px_rgba(61,219,217,0.4)]'
-                      : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {floor}
-                </button>
-              ))}
-            </div>
-
             {isAutoTracing && (
               <div className="px-4 py-2.5 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/50 rounded-lg backdrop-blur-xl shadow-lg">
                 <div className="flex items-center gap-2">
@@ -535,25 +655,14 @@ export default function DigitalTwinManual() {
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => {
-                  if (confirm('Clear all cameras? This cannot be undone.')) {
-                    const updatedVectors = {
-                      ...vectors,
-                      cameras: [],
-                    }
-                    setVectors(updatedVectors)
-                    saveVectors(updatedVectors)
-                    setSelectedCamera(null)
-                  }
-                }}
-                disabled={vectors.cameras.length === 0}
-                className="px-4 py-2.5 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm font-medium hover:bg-red-500/20 transition-all backdrop-blur-xl shadow-lg disabled:opacity-30 disabled:cursor-not-allowed"
+                onClick={handleClearCameras}
+                className="px-4 py-2.5 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm font-medium hover:bg-red-500/20 transition-all backdrop-blur-xl shadow-lg"
               >
                 <div className="flex items-center gap-2">
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M3 4H13M5 4V3C5 2.44772 5.44772 2 6 2H10C10.5523 2 11 2.44772 11 3V4M12 4V13C12 13.5523 11.5523 14 11 14H5C4.44772 14 4 13.5523 4 13V4" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                  <span>Clear Cameras</span>
+                  <span>Reset Cameras</span>
                 </div>
               </button>
 

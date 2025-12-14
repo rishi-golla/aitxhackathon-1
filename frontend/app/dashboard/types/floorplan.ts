@@ -15,6 +15,7 @@ export type CameraNode = {
   label: string
   streamUrl: string
   active: boolean
+  status?: 'normal' | 'warning' | 'incident' | 'inactive'
 }
 
 export type FloorPlanVectors = {

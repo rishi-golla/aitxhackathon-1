@@ -127,7 +127,7 @@ export default function SignupPage() {
               <path d="M10 7L13 9L10 11L7 9L10 7Z" fill="white"/>
             </svg>
           </div>
-          <span className="text-white font-bold text-2xl">NDA Company</span>
+          <span className="text-white font-bold text-2xl">OSHA Vision</span>
         </div>
 
         {/* Signup Card */}
@@ -289,7 +289,7 @@ export default function SignupPage() {
 
         {/* Footer */}
         <p className="text-center text-white/40 text-xs mt-6">
-          © 2024 NDA Company. All rights reserved.
+          © 2024 OSHA Vision. All rights reserved.
         </p>
       </motion.div>
     </div>

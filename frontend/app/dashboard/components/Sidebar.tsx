@@ -117,7 +117,7 @@ export default function Sidebar() {
             <path d="M10 7L13 9L10 11L7 9L10 7Z" fill="white"/>
           </svg>
         </div>
-        <span className="text-white font-semibold text-sm">NDA Company</span>
+        <span className="text-white font-semibold text-sm">OSHA Vision</span>
       </div>
       
       {/* Main Navigation */}
@@ -136,7 +136,7 @@ export default function Sidebar() {
             href="/dashboard/live"
           />
           <NavItem
-            label="Accidents"
+            label="OSHA Violations"
             icon={<AccidentsIcon />}
             active={pathname === '/dashboard/accidents'}
             href="/dashboard/accidents"

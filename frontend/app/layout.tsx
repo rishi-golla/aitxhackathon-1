@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'NDA Company - Security Dashboard',
+  title: 'OSHA Vision - Security Dashboard',
   description: 'Industrial safety & camera monitoring dashboard',
 }
 

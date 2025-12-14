@@ -377,7 +377,7 @@ export default function AccidentsPage() {
     <div className="flex-1 p-6 overflow-auto h-full">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-semibold text-white mb-1">Accident Reports</h1>
+        <h1 className="text-3xl font-semibold text-white mb-1">OSHA Violations</h1>
         <p className="text-white/50 text-sm">
           {filteredAccidents.length} incident{filteredAccidents.length !== 1 ? 's' : ''} recorded
         </p>
