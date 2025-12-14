@@ -21,7 +21,7 @@
     "prisma": "^6.19.1",
     "react": "19.2.1",
     "react-dom": "19.2.1",
-    "three": "^0.158.0"
+    "three": "^0.159.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
