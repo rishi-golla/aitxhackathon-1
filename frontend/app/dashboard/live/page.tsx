@@ -12,6 +12,17 @@ interface Camera {
   active: boolean
 }
 
+interface Violation {
+  camera_id: string
+  camera_label: string
+  code: string
+  title: string
+  text: string
+  penalty: string
+}
+
+const BACKEND_URL = 'http://localhost:8000'
+
 const GridIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
     <rect x="2" y="2" width="5" height="5" rx="1" />
@@ -48,37 +59,54 @@ const StatusBadge = ({ status }: { status: string }) => {
   )
 }
 
-const CameraFeedCard = ({ camera, layout }: { camera: Camera; layout: 'grid' | 'list' }) => {
+const CameraFeedCard = ({ camera, layout, hasViolation }: { camera: Camera; layout: 'grid' | 'list'; hasViolation?: boolean }) => {
   const [isHovered, setIsHovered] = useState(false)
-  
+  const [streamError, setStreamError] = useState(false)
+
+  // Build stream URL from backend
+  const streamUrl = `${BACKEND_URL}/video_feed/${camera.id}`
+
   if (layout === 'list') {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-xl bg-card border border-white/5 p-4 hover:border-cyan/20 transition-all duration-300 flex items-center gap-4"
+        className={`rounded-xl bg-card border p-4 transition-all duration-300 flex items-center gap-4 ${
+          hasViolation ? 'border-red-500/50 shadow-lg shadow-red-500/20' : 'border-white/5 hover:border-cyan/20'
+        }`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Video Preview */}
+        {/* Video Preview - MJPEG Stream */}
         <div className="w-64 h-36 rounded-lg bg-zinc-900 relative overflow-hidden shrink-0">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-white/5 flex items-center justify-center">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polygon points="5 3 19 12 5 21 5 3" fill="currentColor" opacity="0.3" />
-                </svg>
+          {!streamError ? (
+            <img
+              src={streamUrl}
+              alt={camera.label}
+              className="w-full h-full object-cover"
+              onError={() => setStreamError(true)}
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-white/5 flex items-center justify-center">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polygon points="5 3 19 12 5 21 5 3" fill="currentColor" opacity="0.3" />
+                  </svg>
+                </div>
+                <p className="text-xs text-white/40">Stream offline</p>
               </div>
-              <p className="text-xs text-white/40">Stream: {camera.streamUrl}</p>
             </div>
-          </div>
-          
+          )}
+
           {/* Live Badge */}
-          <div className="absolute top-2 left-2 px-2 py-1 rounded bg-red-500 text-white text-[10px] font-bold flex items-center gap-1">
+          <div className={`absolute top-2 left-2 px-2 py-1 rounded text-white text-[10px] font-bold flex items-center gap-1 ${
+            hasViolation ? 'bg-red-600 animate-pulse' : 'bg-red-500'
+          }`}>
             <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-            LIVE
+            {hasViolation ? 'VIOLATION' : 'LIVE'}
           </div>
-          
+
           {/* Fullscreen Button */}
           {isHovered && (
             <motion.button
@@ -90,7 +118,7 @@ const CameraFeedCard = ({ camera, layout }: { camera: Camera; layout: 'grid' | '
             </motion.button>
           )}
         </div>
-        
+
         {/* Info */}
         <div className="flex-1">
           <div className="flex items-start justify-between mb-2">
@@ -98,49 +126,61 @@ const CameraFeedCard = ({ camera, layout }: { camera: Camera; layout: 'grid' | '
               <h3 className="text-white font-semibold text-base mb-1">{camera.label}</h3>
               <p className="text-white/50 text-xs">Floor {camera.floor}</p>
             </div>
-            <StatusBadge status={camera.status} />
+            <StatusBadge status={hasViolation ? 'incident' : camera.status} />
           </div>
-          
+
           <div className="flex items-center gap-4 text-xs text-white/40 mt-3">
             <div className="flex items-center gap-1">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-              Connected
+              <div className={`w-1.5 h-1.5 rounded-full ${streamError ? 'bg-red-400' : 'bg-green-400'}`} />
+              {streamError ? 'Disconnected' : 'Connected'}
             </div>
-            <div>1920x1080</div>
-            <div>30 FPS</div>
+            <div>AI Detection</div>
           </div>
         </div>
       </motion.div>
     )
   }
-  
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="rounded-xl bg-card border border-white/5 p-3 hover:border-cyan/20 transition-all duration-300"
+      className={`rounded-xl bg-card border p-3 transition-all duration-300 ${
+        hasViolation ? 'border-red-500/50 shadow-lg shadow-red-500/20' : 'border-white/5 hover:border-cyan/20'
+      }`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Video Feed */}
+      {/* Video Feed - MJPEG Stream */}
       <div className="aspect-video rounded-lg bg-zinc-900 relative overflow-hidden mb-3">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-white/5 flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="5 3 19 12 5 21 5 3" fill="currentColor" opacity="0.3" />
-              </svg>
+        {!streamError ? (
+          <img
+            src={streamUrl}
+            alt={camera.label}
+            className="w-full h-full object-cover"
+            onError={() => setStreamError(true)}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-white/5 flex items-center justify-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="5 3 19 12 5 21 5 3" fill="currentColor" opacity="0.3" />
+                </svg>
+              </div>
+              <p className="text-[10px] text-white/30">Stream offline</p>
             </div>
-            <p className="text-[10px] text-white/30">Stream: {camera.streamUrl}</p>
           </div>
-        </div>
-        
+        )}
+
         {/* Live Badge */}
-        <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-red-500 text-white text-[9px] font-bold flex items-center gap-1">
+        <div className={`absolute top-2 left-2 px-2 py-0.5 rounded text-white text-[9px] font-bold flex items-center gap-1 ${
+          hasViolation ? 'bg-red-600 animate-pulse' : 'bg-red-500'
+        }`}>
           <div className="w-1 h-1 rounded-full bg-white animate-pulse" />
-          LIVE
+          {hasViolation ? 'VIOLATION' : 'LIVE'}
         </div>
-        
+
         {/* Fullscreen Button */}
         {isHovered && (
           <motion.button
@@ -152,20 +192,20 @@ const CameraFeedCard = ({ camera, layout }: { camera: Camera; layout: 'grid' | '
           </motion.button>
         )}
       </div>
-      
+
       {/* Info */}
       <div className="flex items-start justify-between mb-2">
         <div>
           <h3 className="text-white font-medium text-sm mb-0.5">{camera.label}</h3>
           <p className="text-white/50 text-[10px]">Floor {camera.floor}</p>
         </div>
-        <StatusBadge status={camera.status} />
+        <StatusBadge status={hasViolation ? 'incident' : camera.status} />
       </div>
-      
+
       <div className="flex items-center gap-2 text-[9px] text-white/40">
         <div className="flex items-center gap-1">
-          <div className="w-1 h-1 rounded-full bg-green-400" />
-          Connected
+          <div className={`w-1 h-1 rounded-full ${streamError ? 'bg-red-400' : 'bg-green-400'}`} />
+          {streamError ? 'Offline' : 'Connected'}
         </div>
       </div>
     </motion.div>
@@ -176,10 +216,43 @@ export default function LivePage() {
   const [layout, setLayout] = useState<'grid' | 'list'>('grid')
   const [selectedFloor, setSelectedFloor] = useState<number | 'all'>('all')
   const [cameras, setCameras] = useState<Camera[]>([])
-  
-  // Load cameras from API
+  const [violations, setViolations] = useState<Violation[]>([])
+  const [backendConnected, setBackendConnected] = useState(false)
+
+  // Load cameras from Python backend
   useEffect(() => {
     const loadCameras = async () => {
+      try {
+        // First try the Python backend
+        const response = await fetch(`${BACKEND_URL}/cameras`)
+
+        if (response.ok) {
+          const data = await response.json()
+          setBackendConnected(true)
+
+          if (data.cameras && Array.isArray(data.cameras)) {
+            const loadedCameras: Camera[] = data.cameras.map((cam: any) => ({
+              id: cam.id,
+              label: cam.label,
+              streamUrl: `${BACKEND_URL}/video_feed/${cam.id}`,
+              floor: cam.floor || 1,
+              active: cam.status === 'active',
+              status: 'normal' as const,
+            }))
+            setCameras(loadedCameras)
+            console.log(`✅ Loaded ${loadedCameras.length} cameras from Python backend`)
+          }
+        } else {
+          console.warn('Python backend not available, falling back to user API')
+          await loadFromUserAPI()
+        }
+      } catch (error) {
+        console.warn('Backend fetch failed, falling back to user API:', error)
+        await loadFromUserAPI()
+      }
+    }
+
+    const loadFromUserAPI = async () => {
       try {
         const token = localStorage.getItem('token')
         if (!token) {
@@ -199,9 +272,8 @@ export default function LivePage() {
         }
 
         const data = await response.json()
-        
+
         if (data.cameras && Array.isArray(data.cameras)) {
-          // Convert API format to component format
           const loadedCameras: Camera[] = data.cameras.map((cam: any) => ({
             id: cam.id,
             label: cam.label,
@@ -211,7 +283,7 @@ export default function LivePage() {
             status: cam.status || 'normal',
           }))
           setCameras(loadedCameras)
-          console.log(`✅ Loaded ${loadedCameras.length} cameras from ${data.databaseType || 'API'}`)
+          console.log(`✅ Loaded ${loadedCameras.length} cameras from user API`)
         }
       } catch (error) {
         console.error('Failed to load cameras:', error)
@@ -220,6 +292,35 @@ export default function LivePage() {
 
     loadCameras()
   }, [])
+
+  // Poll for violations from Python backend
+  useEffect(() => {
+    if (!backendConnected) return
+
+    const pollViolations = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/status`)
+        if (response.ok) {
+          const data = await response.json()
+          setViolations(data.violations || [])
+        }
+      } catch (error) {
+        // Silently fail - backend might be temporarily unavailable
+      }
+    }
+
+    // Poll immediately
+    pollViolations()
+
+    // Then poll every second
+    const interval = setInterval(pollViolations, 1000)
+    return () => clearInterval(interval)
+  }, [backendConnected])
+
+  // Helper to check if a camera has violations
+  const cameraHasViolation = (cameraId: string) => {
+    return violations.some(v => v.camera_id === cameraId)
+  }
   
   const filteredCameras = selectedFloor === 'all' 
     ? cameras 
@@ -233,9 +334,27 @@ export default function LivePage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-semibold text-white mb-1">Live Cameras</h1>
-          <p className="text-white/50 text-sm">
-            {filteredCameras.length} camera{filteredCameras.length !== 1 ? 's' : ''} active
-          </p>
+          <div className="flex items-center gap-4">
+            <p className="text-white/50 text-sm">
+              {filteredCameras.length} camera{filteredCameras.length !== 1 ? 's' : ''} active
+            </p>
+            {backendConnected && (
+              <div className="flex items-center gap-1 text-xs text-green-400">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                AI Backend Connected
+              </div>
+            )}
+            {violations.length > 0 && (
+              <div className="flex items-center gap-1 px-2 py-0.5 bg-red-500/20 border border-red-500/30 rounded text-xs text-red-400">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                {violations.length} Active Violation{violations.length !== 1 ? 's' : ''}
+              </div>
+            )}
+          </div>
         </div>
         
         <div className="flex items-center gap-3">
@@ -313,8 +432,13 @@ export default function LivePage() {
         </div>
       ) : (
         <div className={`grid ${gridCols} gap-4`}>
-          {filteredCameras.map((camera, index) => (
-            <CameraFeedCard key={camera.id} camera={camera} layout={layout} />
+          {filteredCameras.map((camera) => (
+            <CameraFeedCard
+              key={camera.id}
+              camera={camera}
+              layout={layout}
+              hasViolation={cameraHasViolation(camera.id)}
+            />
           ))}
         </div>
       )}

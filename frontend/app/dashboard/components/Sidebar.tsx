@@ -27,6 +27,13 @@ const AccidentsIcon = () => (
   </svg>
 )
 
+const DemoIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <path d="M8 2L2 5V11C2 14.5 4.5 17.5 8 18C11.5 17.5 14 14.5 14 11V5L8 2Z" strokeLinejoin="round" />
+    <path d="M6 9L8 11L12 7" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
 const VideoIcon = () => (
   <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
     <rect x="2" y="5" width="12" height="10" rx="1" />
@@ -133,6 +140,12 @@ export default function Sidebar() {
             icon={<AccidentsIcon />}
             active={pathname === '/dashboard/accidents'}
             href="/dashboard/accidents"
+          />
+          <NavItem
+            label="Demo"
+            icon={<DemoIcon />}
+            active={pathname === '/dashboard/demo'}
+            href="/dashboard/demo"
           />
         </div>
       </nav>
