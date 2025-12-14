@@ -131,34 +131,33 @@ model.set_classes([
 ])
 print("YOLO-World model ready.")
 
-# --- 4b. Initialize VLM for Video Summarization (DGX Spark Superpower) ---
-vlm_model = None
-vlm_processor = None
+# --- 4b. Initialize NVIDIA NIM for Video Summarization (DGX Spark Superpower) ---
+# Using NVIDIA Cosmos-Reason1 (7B VLM) via NIM API
+nim_client = None
+NIM_API_KEY = os.environ.get("NVIDIA_API_KEY", os.environ.get("NIM_API_KEY", ""))
+NIM_BASE_URL = os.environ.get("NIM_BASE_URL", "https://integrate.api.nvidia.com/v1")
 
 try:
-    from transformers import AutoProcessor, AutoModelForCausalLM
-    print("Loading VLM for video summarization (DGX Spark)...")
-
-    # Use Microsoft's Florence-2 - excellent for image captioning and runs well on GPU
-    vlm_model_name = "microsoft/Florence-2-base"
-    vlm_processor = AutoProcessor.from_pretrained(vlm_model_name, trust_remote_code=True)
-    vlm_model = AutoModelForCausalLM.from_pretrained(
-        vlm_model_name,
-        trust_remote_code=True,
-        torch_dtype=torch.float16 if device == 'cuda' else torch.float32
-    )
-    if device == 'cuda':
-        vlm_model = vlm_model.to('cuda')
-    print(f"VLM loaded successfully on {device}")
-except Exception as e:
-    print(f"Warning: Could not load VLM model: {e}")
+    from openai import OpenAI
+    if NIM_API_KEY:
+        nim_client = OpenAI(
+            base_url=NIM_BASE_URL,
+            api_key=NIM_API_KEY
+        )
+        print(f"NVIDIA NIM client initialized (Cosmos-Reason1 7B VLM)")
+        print(f"  Base URL: {NIM_BASE_URL}")
+    else:
+        print("Warning: NVIDIA_API_KEY not set. NIM video summarization disabled.")
+        print("  Set NVIDIA_API_KEY environment variable to enable Cosmos-Reason1.")
+except ImportError:
+    print("Warning: openai package not installed. Run: pip install openai")
     print("Video summarization will use YOLO detections as fallback.")
 
 
 def generate_video_summary(camera_id: str) -> str:
     """
-    Generate an AI summary of the video content using VLM.
-    Extracts a frame and describes what's happening.
+    Generate an AI summary of the video content using NVIDIA Cosmos-Reason1 VLM.
+    Extracts a frame and describes what's happening with safety context.
     """
     global camera_summaries
 
@@ -191,75 +190,88 @@ def generate_video_summary(camera_id: str) -> str:
 
         # Resize for faster processing
         frame = cv2.resize(frame, (640, 480))
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Use VLM if available
-        if vlm_model is not None and vlm_processor is not None:
-            from PIL import Image
-            import numpy as np
-
+        # Use NVIDIA NIM (Cosmos-Reason1) if available
+        if nim_client is not None:
             with vlm_lock:
-                # Convert to PIL Image
-                pil_image = Image.fromarray(frame_rgb)
+                # Encode frame as base64 for NIM API
+                _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                image_b64 = base64.b64encode(buffer).decode('utf-8')
 
-                # Generate description using Florence-2
-                prompt = "<MORE_DETAILED_CAPTION>"
-                inputs = vlm_processor(text=prompt, images=pil_image, return_tensors="pt")
+                # Call NVIDIA NIM API with Cosmos-Reason1
+                try:
+                    response = nim_client.chat.completions.create(
+                        model="nvidia/cosmos-reason1-7b",
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "text",
+                                        "text": "Analyze this industrial workplace image for safety compliance. Describe: 1) What activity is being performed, 2) What PPE (Personal Protective Equipment) is visible or missing, 3) Any potential OSHA safety hazards. Be concise (2-3 sentences)."
+                                    },
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {
+                                            "url": f"data:image/jpeg;base64,{image_b64}"
+                                        }
+                                    }
+                                ]
+                            }
+                        ],
+                        max_tokens=200,
+                        temperature=0.2
+                    )
 
-                if device == 'cuda':
-                    inputs = {k: v.to('cuda') for k, v in inputs.items()}
+                    summary = response.choices[0].message.content.strip()
 
-                generated_ids = vlm_model.generate(
-                    input_ids=inputs["input_ids"],
-                    pixel_values=inputs["pixel_values"],
-                    max_new_tokens=150,
-                    num_beams=3,
-                    do_sample=False
-                )
+                    # Add OSHA violation context from YOLO detections
+                    violations = camera_violations.get(camera_id, [])
+                    if violations:
+                        summary += f" [SAFETY ALERT: {len(violations)} OSHA violation(s) detected]"
 
-                generated_text = vlm_processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+                except Exception as nim_error:
+                    print(f"NIM API error for {camera_id}: {nim_error}")
+                    # Fall through to YOLO fallback
+                    summary = None
 
-                # Post-process: Extract the actual caption
-                if "<MORE_DETAILED_CAPTION>" in generated_text:
-                    summary = generated_text.split("<MORE_DETAILED_CAPTION>")[-1].strip()
-                else:
-                    summary = generated_text.strip()
+                if summary:
+                    # Cache the result
+                    camera_summaries[camera_id] = {
+                        "summary": summary,
+                        "timestamp": time.time()
+                    }
+                    return summary
 
-                # Add OSHA context
-                detections = camera_violations.get(camera_id, [])
-                if detections:
-                    summary += f" [SAFETY ALERT: {len(detections)} OSHA violation(s) detected]"
+        # Fallback: Use YOLO detections to generate summary
+        with model_lock:
+            results = model.predict(frame, conf=0.1, verbose=False)
 
+        result = results[0]
+        detected = []
+        if result.boxes and len(result.boxes) > 0:
+            for box in result.boxes:
+                cls_id = int(box.cls[0])
+                class_name = result.names[cls_id]
+                if class_name not in detected:
+                    detected.append(class_name)
+
+        if detected:
+            summary = f"Detected in frame: {', '.join(detected)}. "
+
+            # Add context based on detections
+            if any(d in ["hand", "bare_hand", "fingers", "palm"] for d in detected):
+                summary += "Worker hands visible - monitoring for PPE compliance. "
+            if any(d in ["machine", "tool", "grinder", "saw"] for d in detected):
+                summary += "Industrial equipment in use - high-risk zone. "
+            if any(d in ["person", "worker", "face"] for d in detected):
+                summary += "Worker present in frame. "
+
+            violations = camera_violations.get(camera_id, [])
+            if violations:
+                summary += f"[ALERT: {len(violations)} active violation(s)]"
         else:
-            # Fallback: Use YOLO detections to generate summary
-            with model_lock:
-                results = model.predict(frame, conf=0.1, verbose=False)
-
-            result = results[0]
-            detected = []
-            if result.boxes and len(result.boxes) > 0:
-                for box in result.boxes:
-                    cls_id = int(box.cls[0])
-                    class_name = result.names[cls_id]
-                    if class_name not in detected:
-                        detected.append(class_name)
-
-            if detected:
-                summary = f"Detected in frame: {', '.join(detected)}. "
-
-                # Add context based on detections
-                if any(d in ["hand", "bare_hand", "fingers", "palm"] for d in detected):
-                    summary += "Worker hands visible - monitoring for PPE compliance. "
-                if any(d in ["machine", "tool", "grinder", "saw"] for d in detected):
-                    summary += "Industrial equipment in use - high-risk zone. "
-                if any(d in ["person", "worker", "face"] for d in detected):
-                    summary += "Worker present in frame. "
-
-                violations = camera_violations.get(camera_id, [])
-                if violations:
-                    summary += f"[ALERT: {len(violations)} active violation(s)]"
-            else:
-                summary = "Monitoring video feed. No significant objects detected in current frame."
+            summary = "Monitoring video feed. No significant objects detected in current frame."
 
         # Cache the result
         camera_summaries[camera_id] = {
@@ -565,7 +577,7 @@ async def search_archive(q: str):
 async def summarize_video(camera_id: str):
     """
     Generate an AI summary of the video content (DGX Spark Superpower).
-    Uses VLM to analyze video frames and describe what's happening.
+    Uses NVIDIA Cosmos-Reason1 VLM to analyze video frames and describe what's happening.
     """
     if camera_id not in cameras:
         raise HTTPException(status_code=404, detail=f"Camera {camera_id} not found")
@@ -576,7 +588,8 @@ async def summarize_video(camera_id: str):
         "camera_id": camera_id,
         "camera_label": cameras[camera_id]["label"],
         "summary": summary,
-        "vlm_enabled": vlm_model is not None,
+        "nim_enabled": nim_client is not None,
+        "model": "nvidia/cosmos-reason1-7b" if nim_client else "YOLO-World (fallback)",
         "device": device,
         "cached": camera_summaries.get(camera_id, {}).get("timestamp", 0) > 0
     }
@@ -586,6 +599,7 @@ async def summarize_video(camera_id: str):
 async def summarize_all_videos():
     """
     Generate AI summaries for all cameras (DGX Spark Superpower).
+    Uses NVIDIA Cosmos-Reason1 VLM via NIM API.
     """
     summaries = {}
     for camera_id in cameras:
@@ -598,7 +612,8 @@ async def summarize_all_videos():
     return {
         "summaries": summaries,
         "count": len(summaries),
-        "vlm_enabled": vlm_model is not None,
+        "nim_enabled": nim_client is not None,
+        "model": "nvidia/cosmos-reason1-7b" if nim_client else "YOLO-World (fallback)",
         "device": device
     }
 
