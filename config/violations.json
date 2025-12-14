@@ -11,7 +11,7 @@
     "severity": "critical",
     "status": "new",
     "detectedAt": "2024-12-14T10:23:45Z",
-    "cameraId": "cam-01",
+    "cameraId": "cam-14",
     "floor": 1,
     "triggers": ["bare_hand", "industrial_machine"],
     "duration": "00:02:15"
@@ -28,7 +28,7 @@
     "severity": "critical",
     "status": "reviewing",
     "detectedAt": "2024-12-14T09:15:22Z",
-    "cameraId": "cam-02",
+    "cameraId": "cam-15",
     "floor": 1,
     "triggers": ["no_safety_glasses", "sparks"],
     "duration": "00:01:48"
@@ -45,7 +45,7 @@
     "severity": "critical",
     "status": "new",
     "detectedAt": "2024-12-14T11:42:18Z",
-    "cameraId": "cam-03",
+    "cameraId": "cam-18",
     "floor": 2,
     "triggers": ["hand", "spinning_blade"],
     "duration": "00:00:52"
@@ -62,7 +62,7 @@
     "severity": "high",
     "status": "reviewing",
     "detectedAt": "2024-12-14T08:33:11Z",
-    "cameraId": "cam-04",
+    "cameraId": "cam-19",
     "floor": 2,
     "triggers": ["unguarded_machinery", "rotating_parts"],
     "duration": "00:01:22"
@@ -79,7 +79,7 @@
     "severity": "low",
     "status": "resolved",
     "detectedAt": "2024-12-14T07:15:00Z",
-    "cameraId": "cam-05",
+    "cameraId": "cam-20",
     "floor": 1,
     "triggers": [],
     "duration": "00:00:45"
@@ -96,26 +96,9 @@
     "severity": "high",
     "status": "new",
     "detectedAt": "2024-12-14T12:08:33Z",
-    "cameraId": "cam-06",
+    "cameraId": "cam-21",
     "floor": 3,
     "triggers": ["bare_hand", "chemical_container"],
     "duration": "00:01:05"
-  },
-  {
-    "id": "vio-007",
-    "videoFile": "violation_7_assembly_line_close_call.mp4",
-    "title": "Assembly Line Close Call",
-    "description": "Near-miss incident on assembly line. Worker narrowly avoided contact with moving machinery. Requires safety review.",
-    "oshaCode": "29 CFR 1910.212(a)(1)",
-    "oshaTitle": "Machine Guarding - General",
-    "legalText": "One or more methods of machine guarding shall be provided to protect the operator and other employees in the machine area from hazards such as those created by point of operation, ingoing nip points, rotating parts, flying chips and sparks.",
-    "penalty": 16131,
-    "severity": "medium",
-    "status": "reviewing",
-    "detectedAt": "2024-12-14T13:22:47Z",
-    "cameraId": "cam-07",
-    "floor": 1,
-    "triggers": ["close_call", "assembly_line"],
-    "duration": "00:00:38"
   }
 ]
