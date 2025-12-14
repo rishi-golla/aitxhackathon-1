@@ -112,9 +112,9 @@ export default function DemoPage() {
             <span className="text-2xl">⚡</span>
             <span>Built for NVIDIA DGX Spark</span>
           </div>
-          <h1 className="text-4xl font-bold text-white mb-4">OSHA Vision Demo</h1>
+          <h1 className="text-4xl font-bold text-white mb-4">Safety Audit Engine</h1>
           <p className="text-gray-400 max-w-2xl">
-            Turning raw DGX compute into a usable safety utility. Enterprise-grade AI running securely on the edge.
+            Batch-process daily camera footage for OSHA compliance. Upload archived recordings from your facility's DVR system and let AI identify violations automatically.
           </p>
         </div>
 
@@ -209,7 +209,7 @@ export default function DemoPage() {
               <svg className="w-5 h-5 text-[#76B900]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
               </svg>
-              Upload POV Video
+              Upload Archived Footage
             </h3>
 
             {!uploadedFile ? (
@@ -227,8 +227,8 @@ export default function DemoPage() {
                 <svg className="w-12 h-12 mx-auto mb-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                 </svg>
-                <p className="text-gray-400 mb-2">Drop Egocentric-10K video or click to browse</p>
-                <p className="text-xs text-gray-600">MP4, AVI, MOV • Processed 100% locally on DGX</p>
+                <p className="text-gray-400 mb-2">Drop archived camera footage or click to browse</p>
+                <p className="text-xs text-gray-600">MP4, AVI, MOV • Daily DVR exports • Processed 100% locally</p>
               </div>
             ) : (
               <div>

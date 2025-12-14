@@ -161,12 +161,19 @@ async def startup():
 
 
 # --- 6. Video Stream Generator ---
+# Performance tuning
+INFERENCE_INTERVAL = 10  # Run YOLO every N frames (saves CPU)
+TARGET_FPS = 15  # Target frame rate for smooth playback
+FRAME_SKIP = 2  # Skip every N frames from video to reduce load
+
 def generate_frames(camera_id: str):
     """
     Generate MJPEG frames with YOLO detection overlays.
     Loops video when reaching EOF.
+    Optimized: runs inference every INFERENCE_INTERVAL frames.
     """
     global camera_violations
+    import time
 
     if camera_id not in cameras:
         return
@@ -181,51 +188,72 @@ def generate_frames(camera_id: str):
 
     print(f"Starting stream for {camera_id}: {video_path}")
 
+    frame_count = 0
+    last_boxes = []  # Cache last detection results
+    last_detected_objects = []
+    frame_time = 1.0 / TARGET_FPS
+
     try:
         while True:
-            success, frame = cap.read()
+            start_time = time.time()
 
-            if not success:
-                # Loop the video
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            # Skip frames to reduce load
+            for _ in range(FRAME_SKIP):
+                success, frame = cap.read()
+                if not success:
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    success, frame = cap.read()
+                    if not success:
+                        continue
+
+            if frame is None:
                 continue
 
-            # --- AI INFERENCE ---
-            with model_lock:
-                results = model.predict(frame, conf=0.15, verbose=False)
+            frame_count += 1
+            detected_objects = last_detected_objects
 
-            result = results[0]
+            # --- AI INFERENCE (only every N frames) ---
+            if frame_count % INFERENCE_INTERVAL == 0:
+                with model_lock:
+                    results = model.predict(frame, conf=0.15, verbose=False)
 
-            # Extract detected class names and draw boxes
-            detected_objects = []
-            if result.boxes:
-                for box in result.boxes:
-                    cls_id = int(box.cls[0])
-                    class_name = result.names[cls_id]
-                    detected_objects.append(class_name)
+                result = results[0]
 
-                    # Draw bounding box
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    conf = float(box.conf[0])
+                # Extract and cache detected boxes
+                last_boxes = []
+                detected_objects = []
+                if result.boxes:
+                    for box in result.boxes:
+                        cls_id = int(box.cls[0])
+                        class_name = result.names[cls_id]
+                        detected_objects.append(class_name)
+                        x1, y1, x2, y2 = map(int, box.xyxy[0])
+                        conf = float(box.conf[0])
+                        last_boxes.append((class_name, x1, y1, x2, y2, conf))
 
-                    # Color based on detection type
-                    if class_name in ["bare_hand"]:
-                        color = (0, 0, 255)  # Red for potential violations
-                    elif class_name in ["gloved_hand", "safety_glasses"]:
-                        color = (0, 255, 0)  # Green for safety equipment
-                    else:
-                        color = (255, 165, 0)  # Orange for other
+                last_detected_objects = detected_objects
 
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                    label = f"{class_name} {conf:.2f}"
-                    cv2.putText(frame, label, (x1, y1 - 10),
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+                # --- RULE CHECKING (only when we run inference) ---
+                violations = check_violation(detected_objects)
+                camera_violations[camera_id] = violations
 
-            # --- RULE CHECKING ---
-            violations = check_violation(detected_objects)
-            camera_violations[camera_id] = violations
+            # --- DRAW CACHED BOXES ---
+            for class_name, x1, y1, x2, y2, conf in last_boxes:
+                # Color based on detection type
+                if class_name in ["bare_hand"]:
+                    color = (0, 0, 255)  # Red for potential violations
+                elif class_name in ["gloved_hand", "safety_glasses"]:
+                    color = (0, 255, 0)  # Green for safety equipment
+                else:
+                    color = (255, 165, 0)  # Orange for other
+
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                label = f"{class_name} {conf:.2f}"
+                cv2.putText(frame, label, (x1, y1 - 10),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
             # --- VIOLATION OVERLAY ---
+            violations = camera_violations.get(camera_id, [])
             if violations:
                 # Red border for violations
                 cv2.rectangle(frame, (0, 0), (frame.shape[1], frame.shape[0]), (0, 0, 255), 8)
@@ -243,7 +271,7 @@ def generate_frames(camera_id: str):
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
             # Encode frame as JPEG
-            ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
             if not ret:
                 continue
 
@@ -251,6 +279,11 @@ def generate_frames(camera_id: str):
 
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
+            # Frame rate limiting
+            elapsed = time.time() - start_time
+            if elapsed < frame_time:
+                time.sleep(frame_time - elapsed)
 
     finally:
         cap.release()

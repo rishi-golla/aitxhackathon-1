@@ -211,7 +211,15 @@ function CameraModal({
   )
 }
 
-function CameraViewer({ camera, onClose }: { camera: CameraNode | null; onClose: () => void }) {
+function CameraViewer({ camera, backendCameraId, onClose }: { camera: CameraNode | null; backendCameraId: string | null; onClose: () => void }) {
+  const [streamError, setStreamError] = useState(false)
+  const BACKEND_URL = 'http://localhost:8000'
+
+  // Reset error state when camera changes
+  useEffect(() => {
+    setStreamError(false)
+  }, [camera, backendCameraId])
+
   return (
     <AnimatePresence>
       {camera && (
@@ -225,7 +233,7 @@ function CameraViewer({ camera, onClose }: { camera: CameraNode | null; onClose:
           <div className="flex items-center justify-between p-4 border-b border-white/10">
             <div>
               <h3 className="text-lg font-semibold text-white">{camera.label}</h3>
-              <p className="text-xs text-zinc-400">Floor {camera.floor}</p>
+              <p className="text-xs text-zinc-400">Floor {camera.floor} {backendCameraId && `• ${backendCameraId}`}</p>
             </div>
             <button
               onClick={onClose}
@@ -238,26 +246,47 @@ function CameraViewer({ camera, onClose }: { camera: CameraNode | null; onClose:
           </div>
 
           <div className="relative aspect-video bg-zinc-950">
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-cyan-400/10 flex items-center justify-center">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3ddbd9" strokeWidth="2">
-                    <path d="M23 7L16 12L23 17V7Z" />
-                    <rect x="1" y="5" width="15" height="14" rx="2" />
-                  </svg>
+            {backendCameraId && !streamError ? (
+              <img
+                src={`${BACKEND_URL}/video_feed/${backendCameraId}`}
+                alt={`${camera.label} stream`}
+                className="w-full h-full object-cover"
+                onError={() => setStreamError(true)}
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-cyan-400/10 flex items-center justify-center">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3ddbd9" strokeWidth="2">
+                      <path d="M23 7L16 12L23 17V7Z" />
+                      <rect x="1" y="5" width="15" height="14" rx="2" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-zinc-400">
+                    {streamError ? 'Stream unavailable' : 'No feed assigned'}
+                  </p>
+                  <p className="text-xs text-zinc-500 mt-1 px-4 truncate">{camera.streamUrl || 'Configure stream URL'}</p>
                 </div>
-                <p className="text-sm text-zinc-400">Camera Stream</p>
-                <p className="text-xs text-zinc-500 mt-1 px-4 truncate">{camera.streamUrl}</p>
               </div>
-            </div>
+            )}
+
+            {/* REC indicator when streaming */}
+            {backendCameraId && !streamError && (
+              <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-zinc-700 text-white text-[9px] font-bold flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                REC
+              </div>
+            )}
           </div>
 
           <div className="p-4 space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-zinc-400">Status</span>
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.6)]" />
-                <span className="text-green-400 font-medium">Live</span>
+                <div className={`w-2 h-2 rounded-full ${backendCameraId && !streamError ? 'bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.6)]' : 'bg-zinc-500'}`} />
+                <span className={backendCameraId && !streamError ? 'text-green-400 font-medium' : 'text-zinc-500'}>
+                  {backendCameraId && !streamError ? 'Streaming' : 'Offline'}
+                </span>
               </div>
             </div>
             <div className="flex items-center justify-between text-sm">
@@ -273,6 +302,18 @@ function CameraViewer({ camera, onClose }: { camera: CameraNode | null; onClose:
   )
 }
 
+// Backend camera type from /cameras endpoint
+interface BackendCamera {
+  id: string
+  label: string
+  video_path: string
+  filename: string
+  floor: number
+  status: string
+}
+
+const BACKEND_URL = 'http://localhost:8000'
+
 export default function DigitalTwinManual() {
   const [vectors, setVectors] = useState<FloorPlanVectors>({ walls: [], cameras: [], referenceImage: null })
   const [currentFloor, setCurrentFloor] = useState(1)
@@ -282,7 +323,21 @@ export default function DigitalTwinManual() {
   const [pendingPosition, setPendingPosition] = useState<[number, number, number] | null>(null)
   const [isAutoTracing, setIsAutoTracing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [backendCameras, setBackendCameras] = useState<BackendCamera[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Fetch backend cameras on mount
+  useEffect(() => {
+    fetch(`${BACKEND_URL}/cameras`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.cameras) {
+          setBackendCameras(data.cameras)
+          console.log('📹 Loaded backend cameras:', data.cameras.length)
+        }
+      })
+      .catch(err => console.log('Backend not available:', err.message))
+  }, [])
 
   useEffect(() => {
     loadVectors().then(async (data) => {
@@ -382,6 +437,19 @@ export default function DigitalTwinManual() {
 
 
   const selectedCameraData = vectors.cameras.find((cam) => cam.id === selectedCamera) || null
+
+  // Map frontend camera to backend camera by index (cameras on same floor get assigned in order)
+  const getBackendCameraId = (frontendCameraId: string | null): string | null => {
+    if (!frontendCameraId || backendCameras.length === 0) return null
+
+    // Find the index of the selected camera among all cameras
+    const cameraIndex = vectors.cameras.findIndex(c => c.id === frontendCameraId)
+    if (cameraIndex === -1) return null
+
+    // Map to backend camera (cycling if more frontend cameras than backend)
+    const backendIndex = cameraIndex % backendCameras.length
+    return backendCameras[backendIndex]?.id || null
+  }
 
   if (isLoading) {
     return (
@@ -555,7 +623,11 @@ export default function DigitalTwinManual() {
         onSave={handleSaveCamera}
       />
 
-      <CameraViewer camera={selectedCameraData} onClose={() => setSelectedCamera(null)} />
+      <CameraViewer
+        camera={selectedCameraData}
+        backendCameraId={getBackendCameraId(selectedCamera)}
+        onClose={() => setSelectedCamera(null)}
+      />
     </div>
   )
 }

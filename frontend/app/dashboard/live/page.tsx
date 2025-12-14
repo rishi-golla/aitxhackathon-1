@@ -99,12 +99,12 @@ const CameraFeedCard = ({ camera, layout, hasViolation }: { camera: Camera; layo
             </div>
           )}
 
-          {/* Live Badge */}
+          {/* Status Badge */}
           <div className={`absolute top-2 left-2 px-2 py-1 rounded text-white text-[10px] font-bold flex items-center gap-1 ${
-            hasViolation ? 'bg-red-600 animate-pulse' : 'bg-red-500'
+            hasViolation ? 'bg-red-600 animate-pulse' : 'bg-zinc-700'
           }`}>
-            <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-            {hasViolation ? 'VIOLATION' : 'LIVE'}
+            <div className={`w-1.5 h-1.5 rounded-full ${hasViolation ? 'bg-white animate-pulse' : 'bg-red-500'}`} />
+            {hasViolation ? 'VIOLATION' : 'REC'}
           </div>
 
           {/* Fullscreen Button */}
@@ -173,12 +173,12 @@ const CameraFeedCard = ({ camera, layout, hasViolation }: { camera: Camera; layo
           </div>
         )}
 
-        {/* Live Badge */}
+        {/* Status Badge */}
         <div className={`absolute top-2 left-2 px-2 py-0.5 rounded text-white text-[9px] font-bold flex items-center gap-1 ${
-          hasViolation ? 'bg-red-600 animate-pulse' : 'bg-red-500'
+          hasViolation ? 'bg-red-600 animate-pulse' : 'bg-zinc-700'
         }`}>
-          <div className="w-1 h-1 rounded-full bg-white animate-pulse" />
-          {hasViolation ? 'VIOLATION' : 'LIVE'}
+          <div className={`w-1 h-1 rounded-full ${hasViolation ? 'bg-white animate-pulse' : 'bg-red-500'}`} />
+          {hasViolation ? 'VIOLATION' : 'REC'}
         </div>
 
         {/* Fullscreen Button */}
@@ -333,10 +333,10 @@ export default function LivePage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-semibold text-white mb-1">Live Cameras</h1>
+          <h1 className="text-3xl font-semibold text-white mb-1">Footage Review</h1>
           <div className="flex items-center gap-4">
             <p className="text-white/50 text-sm">
-              {filteredCameras.length} camera{filteredCameras.length !== 1 ? 's' : ''} active
+              {filteredCameras.length} feed{filteredCameras.length !== 1 ? 's' : ''} processing
             </p>
             {backendConnected && (
               <div className="flex items-center gap-1 text-xs text-green-400">

@@ -16,6 +16,9 @@ interface CameraNodeRendererProps {
 const getCameraState = (camera: CameraNode) => {
   // Demo: Randomly assign states for demonstration
   // In production, this would come from camera.status or real-time data
+  if (!camera?.id) {
+    return { color: '#6b7280', label: 'inactive', intensity: 1.5 }
+  }
   const hash = camera.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
   const rand = hash % 100
   
@@ -190,7 +193,8 @@ function CameraDot({ camera, isSelected, onClick }: { camera: CameraNode; isSele
 }
 
 export default function CameraNodeRenderer({ cameras, currentFloor, selectedCamera, onCameraClick }: CameraNodeRendererProps) {
-  const visibleCameras = cameras.filter(c => c.floor === currentFloor)
+  // Filter out cameras without valid IDs and match current floor
+  const visibleCameras = cameras.filter(c => c?.id && c.floor === currentFloor)
 
   return (
     <>

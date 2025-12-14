@@ -130,8 +130,8 @@ export default function Sidebar() {
             href="/dashboard"
           />
           <NavItem
-            label="Live"
-            icon={<LiveIcon />}
+            label="Footage Review"
+            icon={<VideoIcon />}
             active={pathname === '/dashboard/live'}
             href="/dashboard/live"
           />
@@ -142,8 +142,8 @@ export default function Sidebar() {
             href="/dashboard/accidents"
           />
           <NavItem
-            label="Demo"
-            icon={<DemoIcon />}
+            label="How it Works"
+            icon={<SupportIcon />}
             active={pathname === '/dashboard/demo'}
             href="/dashboard/demo"
           />
