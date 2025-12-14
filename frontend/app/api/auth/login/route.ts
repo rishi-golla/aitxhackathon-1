@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getDb } from '@/lib/mongodb'
 import { inMemoryDB } from '@/lib/db-fallback'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
@@ -23,15 +23,29 @@ export async function POST(request: NextRequest) {
     let dbType = 'In-Memory'
 
     try {
-      // Try MongoDB/Prisma first
-      user = await prisma.user.findUnique({ where: { email } })
+      // Try MongoDB directly
+      const db = await getDb()
+      const usersCollection = db.collection('User')
       
-      if (user) {
+      const mongoUser = await usersCollection.findOne({ email })
+      
+      if (mongoUser) {
+        user = {
+          id: mongoUser._id.toString(),
+          email: mongoUser.email,
+          password: mongoUser.password,
+          fullName: mongoUser.fullName,
+          company: mongoUser.company,
+          role: mongoUser.role,
+          avatar: mongoUser.avatar,
+          createdAt: mongoUser.createdAt,
+          updatedAt: mongoUser.updatedAt,
+        }
         dbType = 'MongoDB'
         console.log('✅ User found in MongoDB')
       }
     } catch (mongoError) {
-      console.warn('⚠️ MongoDB unavailable, checking in-memory storage')
+      console.warn('⚠️ MongoDB unavailable, checking in-memory storage:', mongoError)
     }
 
     // Fallback to in-memory if not found in MongoDB

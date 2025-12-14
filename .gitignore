@@ -133,3 +133,5 @@ out/
 
 # Electron
 dist-electron/
+HARDCODED_LAYOUT_GUIDE.md
+.gitignore
