@@ -242,7 +242,27 @@ export default function LivePage() {
           setBackendConnected(true)
 
           if (data.cameras && Array.isArray(data.cameras) && data.cameras.length > 0) {
-            const loadedCameras: Camera[] = data.cameras.map((cam: any) => ({
+            // Show Factory001, Factory002, and violation videos only
+            // Skip Factory003/004 (dark/empty videos) and test footage
+            const factory001 = data.cameras.filter((cam: any) => {
+              const label = cam.label.toLowerCase()
+              return label.includes('factory001')
+            })
+
+            const factory002 = data.cameras.filter((cam: any) => {
+              const label = cam.label.toLowerCase()
+              return label.includes('factory002')
+            })
+
+            const violations = data.cameras.filter((cam: any) => {
+              const label = cam.label.toLowerCase()
+              return label.includes('violation')
+            })
+
+            // Combine: Factory001, Factory002 only (limit to 6 for 2x3 grid)
+            const combined = [...factory001, ...factory002].slice(0, 6)
+
+            const loadedCameras: Camera[] = combined.map((cam: any) => ({
               id: cam.id,
               label: cam.label,
               streamUrl: `${BACKEND_URL}/video_feed/${cam.id}`,
@@ -251,7 +271,7 @@ export default function LivePage() {
               status: 'normal' as const,
             }))
             setCameras(loadedCameras)
-            console.log(`✅ Loaded ${loadedCameras.length} cameras from Python backend`)
+            console.log(`✅ Loaded ${loadedCameras.length} cameras from Python backend (filtered from ${data.cameras.length})`)
           } else {
             console.log('⚠️ Backend returned no cameras, preserving existing hardcoded cameras.')
           }
