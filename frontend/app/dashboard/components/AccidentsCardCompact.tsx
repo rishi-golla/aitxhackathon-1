@@ -48,7 +48,7 @@ export default function AccidentsCardCompact() {
       <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-white/10" />
 
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs tracking-wide text-zinc-400 uppercase">Accidents</span>
+        <span className="text-xs tracking-wide text-zinc-400 uppercase">Violations</span>
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-zinc-500">
           <path d="M6 4L10 8L6 12" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>

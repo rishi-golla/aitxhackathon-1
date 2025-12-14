@@ -76,7 +76,7 @@ export default function AccidentsCard() {
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs tracking-wide text-zinc-400 uppercase">
-          Accidents
+          Violations
         </span>
         <button className="w-4 h-4 flex items-center justify-center text-zinc-500 hover:text-zinc-400 transition-colors">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">

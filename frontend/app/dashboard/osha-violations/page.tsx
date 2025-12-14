@@ -475,7 +475,7 @@ export default function AccidentsPage() {
                 <circle cx="12" cy="16" r="0.5" fill="currentColor" />
               </svg>
             </div>
-            <h3 className="text-white text-lg font-medium mb-2">No Accidents Found</h3>
+            <h3 className="text-white text-lg font-medium mb-2">No Violations Found</h3>
             <p className="text-white/50 text-sm">No incidents match your current filters.</p>
           </div>
         </div>
