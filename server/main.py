@@ -114,7 +114,17 @@ if device == 'cuda':
     model.to('cuda')
     print("Model moved to CUDA.")
 
-model.set_classes(["bare_hand", "gloved_hand", "safety_glasses", "face", "industrial_machine"])
+model.set_classes([
+    # Hand detection - multiple variants for better recall
+    "bare_hand", "hand", "human hand", "fingers", "palm",
+    # Safety equipment
+    "gloved_hand", "glove", "work glove", "safety glove",
+    "safety_glasses", "goggles", "eye_protection", "face_shield",
+    # People
+    "face", "person", "worker",
+    # Industrial context
+    "industrial_machine", "machine", "tool", "power tool", "grinder", "saw"
+])
 print("YOLO-World model ready.")
 
 
@@ -162,15 +172,17 @@ async def startup():
 
 # --- 6. Video Stream Generator ---
 # Performance tuning
-INFERENCE_INTERVAL = 10  # Run YOLO every N frames (saves CPU)
+INFERENCE_INTERVAL = 5  # Run YOLO every N frames (reduced for more responsive detection)
 TARGET_FPS = 15  # Target frame rate for smooth playback
 FRAME_SKIP = 2  # Skip every N frames from video to reduce load
+BOX_PERSISTENCE_FRAMES = 30  # Keep boxes visible for N frames after last detection
 
 def generate_frames(camera_id: str):
     """
     Generate MJPEG frames with YOLO detection overlays.
     Loops video when reaching EOF.
     Optimized: runs inference every INFERENCE_INTERVAL frames.
+    Boxes persist for BOX_PERSISTENCE_FRAMES to prevent flickering.
     """
     global camera_violations
     import time
@@ -191,6 +203,7 @@ def generate_frames(camera_id: str):
     frame_count = 0
     last_boxes = []  # Cache last detection results
     last_detected_objects = []
+    frames_since_detection = 0  # Track how long since we had detections
     frame_time = 1.0 / TARGET_FPS
 
     try:
@@ -210,42 +223,57 @@ def generate_frames(camera_id: str):
                 continue
 
             frame_count += 1
+            frames_since_detection += 1
             detected_objects = last_detected_objects
 
             # --- AI INFERENCE (only every N frames) ---
             if frame_count % INFERENCE_INTERVAL == 0:
                 with model_lock:
-                    results = model.predict(frame, conf=0.15, verbose=False)
+                    results = model.predict(frame, conf=0.05, verbose=False)  # Lower threshold for better recall
 
                 result = results[0]
 
-                # Extract and cache detected boxes
-                last_boxes = []
-                detected_objects = []
-                if result.boxes:
+                # Extract detected boxes - only update cache if we found something
+                new_boxes = []
+                new_detected_objects = []
+                if result.boxes and len(result.boxes) > 0:
                     for box in result.boxes:
                         cls_id = int(box.cls[0])
                         class_name = result.names[cls_id]
-                        detected_objects.append(class_name)
+                        new_detected_objects.append(class_name)
                         x1, y1, x2, y2 = map(int, box.xyxy[0])
                         conf = float(box.conf[0])
-                        last_boxes.append((class_name, x1, y1, x2, y2, conf))
+                        new_boxes.append((class_name, x1, y1, x2, y2, conf))
 
-                last_detected_objects = detected_objects
+                    # Update cache with new detections
+                    last_boxes = new_boxes
+                    last_detected_objects = new_detected_objects
+                    detected_objects = new_detected_objects
+                    frames_since_detection = 0  # Reset persistence counter
 
-                # --- RULE CHECKING (only when we run inference) ---
-                violations = check_violation(detected_objects)
-                camera_violations[camera_id] = violations
+                # --- RULE CHECKING (only when we have detections) ---
+                if new_detected_objects:
+                    violations = check_violation(new_detected_objects)
+                    camera_violations[camera_id] = violations
+
+            # Clear boxes after persistence period expires (only if no new detections)
+            if frames_since_detection > BOX_PERSISTENCE_FRAMES:
+                last_boxes = []
+                last_detected_objects = []
+                camera_violations[camera_id] = []
 
             # --- DRAW CACHED BOXES ---
             for class_name, x1, y1, x2, y2, conf in last_boxes:
                 # Color based on detection type
-                if class_name in ["bare_hand"]:
-                    color = (0, 0, 255)  # Red for potential violations
-                elif class_name in ["gloved_hand", "safety_glasses"]:
+                if class_name in ["bare_hand", "hand", "human hand", "fingers", "palm"]:
+                    color = (0, 0, 255)  # Red for potential violations (unprotected hands)
+                elif class_name in ["gloved_hand", "glove", "work glove", "safety glove",
+                                    "safety_glasses", "goggles", "eye_protection", "face_shield"]:
                     color = (0, 255, 0)  # Green for safety equipment
+                elif class_name in ["industrial_machine", "machine", "tool", "power tool", "grinder", "saw"]:
+                    color = (255, 165, 0)  # Orange for industrial context
                 else:
-                    color = (255, 165, 0)  # Orange for other
+                    color = (255, 255, 0)  # Yellow for other (face, person, worker)
 
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
                 label = f"{class_name} {conf:.2f}"

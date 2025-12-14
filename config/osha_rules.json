@@ -1,8 +1,8 @@
 [
   {
     "id": "hand_protection_general",
-    "triggers": ["bare_hand", "exposed_skin"],
-    "required_context": ["industrial_machine", "sharp_tool", "chemical_container", "spinning_blade"],
+    "triggers": ["bare_hand", "hand", "human hand", "fingers", "palm", "exposed_skin"],
+    "required_context": ["industrial_machine", "machine", "tool", "power tool", "grinder", "saw", "sharp_tool", "chemical_container", "spinning_blade"],
     "code": "29 CFR 1910.138(a)",
     "title": "General Requirements - Hand Protection",
     "legal_text": "Employers shall select and require employees to use appropriate hand protection when employees' hands are exposed to hazards such as those from skin absorption of harmful substances; severe cuts or lacerations; severe abrasions; punctures; chemical burns; thermal burns; and harmful temperature extremes.",
@@ -28,8 +28,8 @@
   },
   {
     "id": "point_of_operation",
-    "triggers": ["hand_near_blade", "hand_in_machine_zone"],
-    "required_context": ["active_machine"],
+    "triggers": ["hand_near_blade", "hand_in_machine_zone", "hand", "human hand", "fingers"],
+    "required_context": ["active_machine", "machine", "tool", "power tool", "grinder", "saw"],
     "code": "29 CFR 1910.212(a)(3)(ii)",
     "title": "Point of Operation Guarding",
     "legal_text": "The point of operation of machines whose operation exposes an employee to injury, shall be guarded. The guarding device shall be so designed and constructed as to prevent the operator from having any part of his body in the danger zone during the operating cycle.",

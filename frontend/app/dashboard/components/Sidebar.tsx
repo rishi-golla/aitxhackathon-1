@@ -138,8 +138,8 @@ export default function Sidebar() {
           <NavItem
             label="OSHA Violations"
             icon={<AccidentsIcon />}
-            active={pathname === '/dashboard/accidents'}
-            href="/dashboard/accidents"
+            active={pathname === '/dashboard/osha-violations'}
+            href="/dashboard/osha-violations"
           />
           <NavItem
             label="How it Works"

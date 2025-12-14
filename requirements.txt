@@ -52,3 +52,7 @@ requests>=2.31.0
 
 # Optional: Piper TTS for local inference
 # piper-tts>=1.2.0
+
+# Video Generation
+google-genai>=0.1.0
+python-dotenv>=1.0.0

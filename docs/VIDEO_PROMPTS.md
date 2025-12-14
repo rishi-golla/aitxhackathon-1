@@ -25,7 +25,7 @@ Use these prompts with AI video generators (Runway, Pika, Sora, etc.) to create 
 ### 1. BARE HANDS + INDUSTRIAL MACHINE (Primary Violation)
 
 **Prompt:**
-> "First-person POV footage of a factory worker operating a metal grinding machine. The worker's bare hands are clearly visible in frame, no gloves. Sparks flying from the grinder. Industrial workshop setting with metal shelving in background. Steady camera, realistic lighting. 10 seconds."
+> "First-person POV footage of a factory worker operating a metal grinding machine. The worker's bare hands are clearly visible in frame, no gloves. Sparks flying from the grinder. Industrial workshop setting with metal shelving in background. Steady camera, realistic lighting. 10 seconds. Cinematic 16:9 aspect ratio."
 
 **Expected Detection:**
 - `bare_hand` (trigger) + `industrial_machine` (context)
@@ -36,7 +36,7 @@ Use these prompts with AI video generators (Runway, Pika, Sora, etc.) to create 
 ### 2. NO SAFETY GLASSES + SPARKS
 
 **Prompt:**
-> "First-person POV of a worker using an angle grinder on metal pipe. Camera shows worker's face reflected in metal surface - no safety glasses visible. Bright sparks flying toward camera. Warehouse/factory setting. 8 seconds."
+> "First-person POV of a reckless worker using an angle grinder. Reflection in the metal shows the worker has a completely bare face with NO safety glasses and NO eye protection. Eyes are fully exposed to danger. Squinting bare eyes. Dangerous OSHA violation. Bright sparks flying toward unprotected face. Warehouse setting. 8 seconds. Cinematic 16:9 aspect ratio."
 
 **Expected Detection:**
 - `face` visible + no `safety_glasses` + sparks
@@ -47,7 +47,7 @@ Use these prompts with AI video generators (Runway, Pika, Sora, etc.) to create 
 ### 3. HAND NEAR SPINNING BLADE
 
 **Prompt:**
-> "Close-up POV footage of a table saw or circular saw in operation. A bare hand reaches toward the spinning blade to push material through. The hand comes dangerously close to the point of operation. Industrial woodshop setting. 6 seconds."
+> "Close-up POV footage of a table saw or circular saw in operation. A bare hand reaches toward the spinning blade to push material through. The hand comes dangerously close to the point of operation. Industrial woodshop setting. 6 seconds. Cinematic 16:9 aspect ratio."
 
 **Expected Detection:**
 - `bare_hand` + `industrial_machine` (spinning blade context)
@@ -58,7 +58,7 @@ Use these prompts with AI video generators (Runway, Pika, Sora, etc.) to create 
 ### 4. UNGUARDED ROTATING MACHINERY
 
 **Prompt:**
-> "POV footage walking through a factory floor. Camera pans across machinery with exposed belts, pulleys, and rotating shafts. No guards or covers visible on the equipment. Worker's hand briefly enters frame pointing at the machinery. 12 seconds."
+> "POV footage walking through a factory floor. Camera pans across machinery with exposed belts, pulleys, and rotating shafts. No guards or covers visible on the equipment. Worker's hand briefly enters frame pointing at the machinery. 12 seconds. Cinematic 16:9 aspect ratio."
 
 **Expected Detection:**
 - `rotating_parts`, `exposed_gears` visible
@@ -69,7 +69,7 @@ Use these prompts with AI video generators (Runway, Pika, Sora, etc.) to create 
 ### 5. CORRECT PPE (Negative Example)
 
 **Prompt:**
-> "First-person POV of a factory worker properly equipped. Gloved hands visible operating controls. Safety glasses reflection visible. Operating a CNC machine or drill press with all guards in place. Clean, well-lit industrial facility. 8 seconds."
+> "First-person POV of a factory worker properly equipped. Gloved hands visible operating controls. Safety glasses reflection visible. Operating a CNC machine or drill press with all guards in place. Clean, well-lit industrial facility. 8 seconds. Cinematic 16:9 aspect ratio."
 
 **Expected Detection:**
 - `gloved_hand` + `safety_glasses` + `industrial_machine`
@@ -80,7 +80,7 @@ Use these prompts with AI video generators (Runway, Pika, Sora, etc.) to create 
 ### 6. CHEMICAL HANDLING WITHOUT GLOVES
 
 **Prompt:**
-> "POV footage of a worker in a chemical storage area. Bare hands visible picking up and moving containers with hazard labels. Yellow/red chemical drums visible. Industrial cleaning or manufacturing setting. 10 seconds."
+> "POV footage of a worker in a chemical storage area. Bare hands visible picking up and moving containers with hazard labels. Yellow/red chemical drums visible. Industrial cleaning or manufacturing setting. 10 seconds. Cinematic 16:9 aspect ratio."
 
 **Expected Detection:**
 - `bare_hand` + `chemical_container` context
@@ -91,7 +91,7 @@ Use these prompts with AI video generators (Runway, Pika, Sora, etc.) to create 
 ### 7. ASSEMBLY LINE CLOSE CALL
 
 **Prompt:**
-> "First-person footage on a factory assembly line. Worker's bare hands assembling components. Suddenly reaches near a moving conveyor belt with pinch points. Quick reflexive pull-back motion. Realistic factory ambient sound. 8 seconds."
+> "First-person footage on a factory assembly line. Worker's bare hands assembling components. Suddenly reaches near a moving conveyor belt with pinch points. Quick reflexive pull-back motion. Realistic factory ambient sound. 8 seconds. Cinematic 16:9 aspect ratio."
 
 **Expected Detection:**
 - `bare_hand` + `industrial_machine`
