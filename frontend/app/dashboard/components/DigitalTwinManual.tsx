@@ -285,9 +285,32 @@ export default function DigitalTwinManual() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    loadVectors().then(data => {
+    loadVectors().then(async (data) => {
       setVectors(data)
       setIsLoading(false)
+      
+      // Auto-trace walls if floor plan exists but no walls
+      if (data.referenceImage && data.walls.length === 0) {
+        console.log('🔍 Auto-tracing walls from loaded floor plan...')
+        setIsAutoTracing(true)
+        try {
+          const detectedWalls = await autoTraceWalls(data.referenceImage, currentFloor)
+          
+          if (detectedWalls.length > 0) {
+            console.log(`✅ Detected ${detectedWalls.length} walls`)
+            const updatedVectors = {
+              ...data,
+              walls: detectedWalls,
+            }
+            setVectors(updatedVectors)
+            saveVectors(updatedVectors)
+          }
+        } catch (error) {
+          console.error('Auto-trace error:', error)
+        } finally {
+          setIsAutoTracing(false)
+        }
+      }
     })
   }, [])
 

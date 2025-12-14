@@ -1,5 +1,5 @@
-// Hardcoded data - shared across all instances
-// Edit this file to change the default layout for everyone
+﻿// Hardcoded data - shared across all instances
+// This file contains the default layout that everyone sees
 
 export interface Camera {
   id: string
@@ -23,35 +23,59 @@ export interface FloorPlan {
   referenceImage: string | null
 }
 
-// Default hardcoded cameras
+// Pre-placed cameras - Positioned strategically for warehouse layout
+// The 3D scene normalizes the floor plan to roughly -7 to +7 on X axis and -3 to +3 on Z axis
+// Cameras are placed at key monitoring points
 export const HARDCODED_CAMERAS: Camera[] = [
-  // Example cameras - edit these or add more
-  // {
-  //   id: 'cam-1',
-  //   label: 'Entrance Camera',
-  //   streamUrl: 'https://example.com/stream1',
-  //   floor: 1,
-  //   position: JSON.stringify([2, 0, 3]),
-  //   rotation: JSON.stringify([0, 0, 0]),
-  //   status: 'normal',
-  //   active: true,
-  // },
+  {
+    id: 'cam-entrance',
+    label: 'Main Entrance',
+    streamUrl: 'rtsp://demo.com/stream1',
+    floor: 1,
+    position: JSON.stringify([-5, 0, 2.5]), // Top left - entrance area
+    rotation: JSON.stringify([0, 0, 0]),
+    status: 'normal',
+    active: true,
+  },
+  {
+    id: 'cam-warehouse-north',
+    label: 'Warehouse North',
+    streamUrl: 'rtsp://demo.com/stream2',
+    floor: 1,
+    position: JSON.stringify([0, 0, 2.5]), // Top center - main warehouse area
+    rotation: JSON.stringify([0, 0, 0]),
+    status: 'normal',
+    active: true,
+  },
+  {
+    id: 'cam-warehouse-south',
+    label: 'Warehouse South',
+    streamUrl: 'rtsp://demo.com/stream3',
+    floor: 1,
+    position: JSON.stringify([0, 0, -2.5]), // Bottom center - warehouse floor
+    rotation: JSON.stringify([0, 0, 0]),
+    status: 'normal',
+    active: true,
+  },
+  {
+    id: 'cam-loading-dock',
+    label: 'Loading Dock',
+    streamUrl: 'rtsp://demo.com/stream4',
+    floor: 1,
+    position: JSON.stringify([5, 0, -2.5]), // Bottom right - loading area
+    rotation: JSON.stringify([0, 0, 0]),
+    status: 'warning',
+    active: true,
+  },
 ]
 
-// Default hardcoded walls
-export const HARDCODED_WALLS: WallSegment[] = [
-  // Example walls - edit these or add more
-  // {
-  //   id: 'wall-1',
-  //   floor: 1,
-  //   start: JSON.stringify([0, 0]),
-  //   end: JSON.stringify([10, 0]),
-  // },
-]
+// Default walls (empty - will be auto-traced from floor plan)
+export const HARDCODED_WALLS: WallSegment[] = []
 
-// Default hardcoded floor plan
+// Your uploaded floor plan
+// Using the download.jpg file from the root directory
 export const HARDCODED_FLOORPLAN: FloorPlan = {
-  referenceImage: null, // Set to a base64 image or URL if you want a default floor plan
+  referenceImage: '/download.jpg', // Path to your floor plan image
 }
 
 // In-memory storage that persists during app runtime
@@ -88,4 +112,3 @@ export function resetToDefaults() {
   runtimeWalls = [...HARDCODED_WALLS]
   runtimeFloorPlan = { ...HARDCODED_FLOORPLAN }
 }
-
