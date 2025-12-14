@@ -1,6 +1,36 @@
-version: '3.8'
-
 services:
+  # VSS Engine - Video Search & Summary with Cosmos VLM
+  vss-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.vss
+    image: vss-engine-custom:latest
+    container_name: vss-engine
+    runtime: nvidia
+    environment:
+      - NGC_API_KEY=${NGC_API_KEY}
+      - VLLM_GPU_MEMORY_UTILIZATION=0.3
+      - VLM_MODEL_TO_USE=cosmos-reason1
+      - MODEL_PATH=ngc:nim/nvidia/cosmos-reason1-7b:1.1-fp8-dynamic
+      - DISABLE_CA_RAG=false
+      - DISABLE_FRONTEND=true
+      - DISABLE_GUARDRAILS=true
+      - DISABLE_CV_PIPELINE=true
+      - REDIS_HOST=127.0.0.1
+      - REDIS_PORT=6379
+      - FRONTEND_PORT=3000
+      - BACKEND_PORT=8000
+      - API_GATEWAY_PORT=8080
+      - GST_PLUGIN_FEATURE_RANK=avdec_h264:MAX,avdec_h265:MAX
+    network_mode: host
+    volumes:
+      - ./data:/data
+      - ./models:/models
+      - ./video_file_frame_getter.py:/opt/nvidia/via/via-engine/vlm_pipeline/video_file_frame_getter.py
+    depends_on:
+      - redis
+
+  # Safety Copilot - Full Application
   safety-copilot:
     build: .
     container_name: osha-vision
@@ -18,7 +48,6 @@ services:
       - ./config:/app/config
       - ./logs:/app/logs
       - ./.alert_cache:/app/.alert_cache
-      # Mount video device for webcam access
       - /dev/video0:/dev/video0
     devices:
       - /dev/video0:/dev/video0
@@ -37,32 +66,29 @@ services:
       retries: 3
       start_period: 60s
     restart: unless-stopped
-
-  # Optional: Run just the backend API
-  backend:
-    build: .
-    container_name: osha-vision-api
-    runtime: nvidia
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - VIDEO_SOURCE=0
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./data:/app/data
-      - ./config:/app/config
-      - ./logs:/app/logs
-      - /dev/video0:/dev/video0
-    devices:
-      - /dev/video0:/dev/video0
-    privileged: true
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    command: ["python", "server/main.py"]
     profiles:
-      - backend-only
+      - full
+
+  redis:
+    image: redis/redis-stack-server:7.2.0-v9
+    container_name: vss-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - vss-network
+
+  vst-storage:
+    image: nvcr.io/nvidia/blueprint/vst-storage:2.1.0-25.07.1
+    container_name: vst-storage
+    environment:
+      - VST_STORAGE_PATH=/data
+    volumes:
+      - ./data:/data
+    ports:
+      - "8081:8081"
+    networks:
+      - vss-network
+
+networks:
+  vss-network:
+    driver: bridge

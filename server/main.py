@@ -3,10 +3,23 @@ import cv2
 import uvicorn
 import os
 import torch
+import sys
+from pathlib import Path
 from fastapi import FastAPI
 from ultralytics import YOLOWorld
 from fastapi.responses import StreamingResponse
 from typing import List, Dict, Any
+
+# Add root directory to sys.path to allow importing archivist
+root_dir = str(Path(__file__).parent.parent)
+if root_dir not in sys.path:
+    sys.path.append(root_dir)
+
+try:
+    from archivist.vector_store import VectorStore
+except ImportError:
+    print("Warning: Could not import archivist.vector_store. Search will be disabled.")
+    VectorStore = None
 
 # --- 1. Load Rules (Existing Logic) ---
 try:
@@ -49,6 +62,15 @@ app = FastAPI(title="OSHA-Vision Backend")
 
 # Global state
 current_violations: List[Dict[str, Any]] = []
+
+# Initialize Vector Store
+vector_store = None
+if VectorStore:
+    try:
+        vector_store = VectorStore()
+    except Exception as e:
+        print(f"Warning: Could not initialize VectorStore: {e}")
+
 # Initialize YOLO-World Model
 # Using yolov8s-world.pt for balance of speed/accuracy on DGX Spark
 print("Checking for GPU...")
@@ -135,6 +157,14 @@ async def video_feed():
 @app.get("/status")
 async def get_status():
     return {"violations": current_violations}
+
+@app.get("/search")
+async def search_archive(q: str):
+    if not vector_store:
+        return {"error": "Search engine not available", "results": []}
+    
+    results = vector_store.search(q)
+    return {"results": results}
 
 if __name__ == "__main__":
     # Run on 0.0.0.0 to be accessible if needed, port 8000

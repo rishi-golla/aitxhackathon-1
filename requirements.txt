@@ -45,6 +45,7 @@ plotly>=5.18.0
 # Utilities
 python-multipart>=0.0.6
 aiofiles>=23.2.0
+requests>=2.31.0
 
 # Optional: Edge TTS for better voice
 # edge-tts>=6.1.0
