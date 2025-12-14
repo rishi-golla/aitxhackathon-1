@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getDb } from '@/lib/mongodb'
 import { inMemoryDB } from '@/lib/db-fallback'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
@@ -33,8 +33,11 @@ export async function POST(request: NextRequest) {
     let dbType = 'In-Memory'
 
     try {
-      // Try MongoDB/Prisma first
-      const existingUser = await prisma.user.findUnique({ where: { email } })
+      // Try MongoDB directly
+      const db = await getDb()
+      const usersCollection = db.collection('User')
+      
+      const existingUser = await usersCollection.findOne({ email })
       
       if (existingUser) {
         return NextResponse.json(
@@ -43,19 +46,25 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      user = await prisma.user.create({
-        data: {
-          email,
-          password: hashedPassword,
-          fullName,
-          company,
-          role: role || 'operator',
-          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${fullName}`,
-        },
-      })
+      const newUser = {
+        email,
+        password: hashedPassword,
+        fullName,
+        company,
+        role: role || 'operator',
+        avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${fullName}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+      
+      const result = await usersCollection.insertOne(newUser)
+      user = {
+        id: result.insertedId.toString(),
+        ...newUser,
+      }
       
       dbType = 'MongoDB'
-      console.log('✅ User created in MongoDB')
+      console.log('✅ User created in MongoDB:', email)
     } catch (mongoError) {
       console.warn('⚠️ MongoDB unavailable, using in-memory storage')
       

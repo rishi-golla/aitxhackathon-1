@@ -112,6 +112,8 @@ htmlcov/
 
 # Electron
 dist-electron/
+HARDCODED_LAYOUT_GUIDE.md
+.gitignore
 
 # Archivist index
 archivist_index.json

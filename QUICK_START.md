@@ -1,171 +1,132 @@
-# Quick Start Guide
+# Quick Start - Get Running in 2 Minutes
 
-## ✅ The App is Now Running!
+## For New Team Members
 
-I've fixed the issue and the app now works **without requiring MongoDB**!
-
-### What I Fixed:
-1. ✅ Cleared Next.js cache
-2. ✅ Added in-memory database fallback
-3. ✅ Restarted the dev server
-4. ✅ API routes now work properly
-
-## 🚀 Try It Now!
-
-### Step 1: Open the App
-```
-http://localhost:3000
-```
-
-### Step 2: Test the API
-```
-http://localhost:3000/api/test
-```
-
-You should see:
-```json
-{
-  "status": "ok",
-  "message": "API is working",
-  "database": "connected",
-  "databaseType": "In-Memory (Fallback)",
-  "userCount": 0,
-  "note": "MongoDB not available. Using temporary in-memory storage..."
-}
-```
-
-### Step 3: Create an Account
-1. Click "Sign up"
-2. Fill in the form:
-   - Full Name: John Doe
-   - Email: john@example.com
-   - Company: Acme Corp
-   - Role: Operator
-   - Password: password123
-   - Confirm Password: password123
-3. Click "Create account"
-4. You'll be logged in automatically! 🎉
-
-## 📝 Important Notes
-
-### Using In-Memory Storage
-Since MongoDB isn't installed, the app uses **temporary in-memory storage**:
-
-✅ **Pros:**
-- Works immediately, no setup needed
-- Fast and simple
-- Perfect for development/testing
-
-⚠️ **Cons:**
-- Data is lost when you restart the server
-- Not suitable for production
-- Can't share data between multiple instances
-
-### Want to Use MongoDB Instead?
-
-If you want persistent data storage:
-
-1. **Install MongoDB:**
-   - Download from: https://www.mongodb.com/try/download/community
-   - Install and start the service
-
-2. **Restart the app:**
-   ```bash
-   cd frontend
-   npm run dev
-   ```
-
-3. **The app will automatically detect MongoDB and use it!**
-
-## 🎯 What You Can Do Now
-
-### 1. Create Multiple Accounts
-- Each account is stored in memory
-- You can login/logout
-- Profile customization works
-
-### 2. Explore the Dashboard
-- View the camera layout
-- See accident reports
-- Check live feeds
-- Customize your profile
-
-### 3. Test All Features
-- Upload floor plans
-- Place cameras
-- View 3D layout
-- Check recent activity
-
-## 🔄 Restarting the App
-
-Every time you restart the dev server, you'll need to create a new account (since data is in memory).
-
-**To restart:**
-1. Press `Ctrl+C` in the terminal
-2. Run: `npm run dev`
-3. Create a new account
-
-## 💾 Persistent Storage (Optional)
-
-Want to keep your data? Install MongoDB:
-
-### Windows:
-1. Download: https://www.mongodb.com/try/download/community
-2. Run installer
-3. Check "Install as Windows Service"
-4. Restart your app - it will automatically use MongoDB!
-
-### Mac:
+### 1. Clone the Repo
 ```bash
-brew install mongodb-community
-brew services start mongodb-community
+git clone <repo-url>
+cd aitxhackathon-1-1
 ```
 
-### Linux:
+### 2. Copy Environment File
 ```bash
-sudo apt-get install mongodb
-sudo systemctl start mongod
-```
-
-Then just restart the app - no configuration needed!
-
-## 🐛 Troubleshooting
-
-### "Server error: Expected JSON response but got HTML"
-**Solution:** The dev server needs to be restarted.
-```bash
+# Windows
 cd frontend
+copy .env.example .env
+cd ..
+
+# Mac/Linux
+cd frontend
+cp .env.example .env
+cd ..
+```
+
+### 3. Install Dependencies
+```bash
+npm install
+cd frontend
+npm install
+cd ..
+```
+
+### 4. Run the App
+```bash
 npm run dev
 ```
 
-### Can't create an account
-**Check:**
-1. Dev server is running: `http://localhost:3000`
-2. API works: `http://localhost:3000/api/test`
-3. Browser console for errors (F12)
+**That's it!** The Electron app opens with the dashboard. 🎉
+
+---
+
+## What You'll See
+
+- ✅ Dashboard with camera layout
+- ✅ Cost of Inaction metrics
+- ✅ Recent Activity feed
+- ✅ Accidents tracking
+- ✅ **Same layout as everyone else** (if using shared MongoDB)
+
+---
+
+## Shared Layout
+
+If the project owner has set up MongoDB Atlas:
+- ✅ You see their floor plan
+- ✅ You see their camera placements
+- ✅ Any changes you make are visible to everyone
+- ✅ Real-time collaboration!
+
+If using local MongoDB:
+- Each person has their own layout
+- See `TEAM_SETUP_GUIDE.md` to enable sharing
+
+---
+
+## Features
+
+- 📸 **Upload Floor Plans** - Drag & drop factory layouts
+- 🎥 **Place Cameras** - Click to add camera nodes
+- 🗺️ **Auto-Trace Walls** - Automatic wall detection
+- 💰 **Cost of Inaction** - Real-time violation cost tracking
+- 📊 **Analytics** - Accidents, incidents, metrics
+- 🔴 **Live Feeds** - View all camera feeds
+- 📝 **Activity Log** - Recent events and alerts
+
+---
+
+## Troubleshooting
 
 ### Port 3000 already in use
-```bash
-# Kill the process
-netstat -ano | findstr :3000
-taskkill /PID <PID> /F
-
-# Or use different port
-npm run dev -- -p 3001
+```powershell
+taskkill /F /IM node.exe
+npm run dev
 ```
 
-## 📚 Next Steps
+### White screen / errors
+```powershell
+cd frontend
+Remove-Item -Recurse -Force .next
+cd ..
+npm run dev
+```
 
-1. **Explore the Dashboard** - Check out all the features
-2. **Upload a Floor Plan** - Test the 3D camera placement
-3. **Customize Your Profile** - Try different avatar styles
-4. **View Accident Reports** - See the mock data
+### MongoDB connection error
+Check `frontend/.env` file exists and has valid `DATABASE_URL`
 
-## 🎉 You're All Set!
+---
 
-The app is working and ready to use. No MongoDB required for now!
+## Project Structure
 
-If you want persistent storage later, just install MongoDB and restart - it will automatically switch from in-memory to MongoDB.
+```
+aitxhackathon-1-1/
+├── backend/           # Electron main process
+├── frontend/          # Next.js app
+│   ├── app/          # Pages and routes
+│   ├── lib/          # MongoDB connection
+│   └── .env          # Your local config
+├── docs/             # Documentation
+└── package.json      # Root dependencies
+```
 
-Enjoy! 🚀
+---
 
+## Commands
+
+```bash
+npm run dev           # Start dev server + Electron
+npm run dev:next      # Start Next.js only
+npm run dev:electron  # Start Electron only
+npm run build:next    # Build for production
+```
+
+---
+
+## Need Help?
+
+- See `TEAM_SETUP_GUIDE.md` for shared MongoDB setup
+- See `NO_AUTH_SETUP.md` for authentication details
+- See `SHARED_LAYOUT_SETUP.md` for collaboration setup
+
+---
+
+**Ready to go!** 🚀
