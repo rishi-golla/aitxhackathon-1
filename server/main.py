@@ -18,6 +18,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from ultralytics import YOLOWorld
 from typing import List, Dict, Any, Optional
+import base64
+import time
 
 # Add root directory to sys.path to allow importing archivist
 root_dir = str(Path(__file__).parent.parent)
@@ -94,7 +96,9 @@ app.add_middleware(
 # --- 3. Global State ---
 cameras: Dict[str, Dict[str, Any]] = {}
 camera_violations: Dict[str, List[Dict[str, Any]]] = {}
+camera_summaries: Dict[str, Dict[str, Any]] = {}  # Cache for video summaries
 model_lock = threading.Lock()
+vlm_lock = threading.Lock()
 
 # Initialize Vector Store
 vector_store = None
@@ -126,6 +130,148 @@ model.set_classes([
     "industrial_machine", "machine", "tool", "power tool", "grinder", "saw"
 ])
 print("YOLO-World model ready.")
+
+# --- 4b. Initialize VLM for Video Summarization (DGX Spark Superpower) ---
+vlm_model = None
+vlm_processor = None
+
+try:
+    from transformers import AutoProcessor, AutoModelForCausalLM
+    print("Loading VLM for video summarization (DGX Spark)...")
+
+    # Use Microsoft's Florence-2 - excellent for image captioning and runs well on GPU
+    vlm_model_name = "microsoft/Florence-2-base"
+    vlm_processor = AutoProcessor.from_pretrained(vlm_model_name, trust_remote_code=True)
+    vlm_model = AutoModelForCausalLM.from_pretrained(
+        vlm_model_name,
+        trust_remote_code=True,
+        torch_dtype=torch.float16 if device == 'cuda' else torch.float32
+    )
+    if device == 'cuda':
+        vlm_model = vlm_model.to('cuda')
+    print(f"VLM loaded successfully on {device}")
+except Exception as e:
+    print(f"Warning: Could not load VLM model: {e}")
+    print("Video summarization will use YOLO detections as fallback.")
+
+
+def generate_video_summary(camera_id: str) -> str:
+    """
+    Generate an AI summary of the video content using VLM.
+    Extracts a frame and describes what's happening.
+    """
+    global camera_summaries
+
+    if camera_id not in cameras:
+        return "Camera not found."
+
+    cam = cameras[camera_id]
+    video_path = cam["video_path"]
+
+    # Check cache (summaries valid for 30 seconds)
+    cached = camera_summaries.get(camera_id)
+    if cached and (time.time() - cached.get("timestamp", 0)) < 30:
+        return cached.get("summary", "Analyzing...")
+
+    try:
+        # Extract a frame from the video
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            return "Unable to access video feed."
+
+        # Get frame from middle of video for better context
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        cap.set(cv2.CAP_PROP_POS_FRAMES, total_frames // 2)
+
+        success, frame = cap.read()
+        cap.release()
+
+        if not success or frame is None:
+            return "Unable to capture frame."
+
+        # Resize for faster processing
+        frame = cv2.resize(frame, (640, 480))
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # Use VLM if available
+        if vlm_model is not None and vlm_processor is not None:
+            from PIL import Image
+            import numpy as np
+
+            with vlm_lock:
+                # Convert to PIL Image
+                pil_image = Image.fromarray(frame_rgb)
+
+                # Generate description using Florence-2
+                prompt = "<MORE_DETAILED_CAPTION>"
+                inputs = vlm_processor(text=prompt, images=pil_image, return_tensors="pt")
+
+                if device == 'cuda':
+                    inputs = {k: v.to('cuda') for k, v in inputs.items()}
+
+                generated_ids = vlm_model.generate(
+                    input_ids=inputs["input_ids"],
+                    pixel_values=inputs["pixel_values"],
+                    max_new_tokens=150,
+                    num_beams=3,
+                    do_sample=False
+                )
+
+                generated_text = vlm_processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+
+                # Post-process: Extract the actual caption
+                if "<MORE_DETAILED_CAPTION>" in generated_text:
+                    summary = generated_text.split("<MORE_DETAILED_CAPTION>")[-1].strip()
+                else:
+                    summary = generated_text.strip()
+
+                # Add OSHA context
+                detections = camera_violations.get(camera_id, [])
+                if detections:
+                    summary += f" [SAFETY ALERT: {len(detections)} OSHA violation(s) detected]"
+
+        else:
+            # Fallback: Use YOLO detections to generate summary
+            with model_lock:
+                results = model.predict(frame, conf=0.1, verbose=False)
+
+            result = results[0]
+            detected = []
+            if result.boxes and len(result.boxes) > 0:
+                for box in result.boxes:
+                    cls_id = int(box.cls[0])
+                    class_name = result.names[cls_id]
+                    if class_name not in detected:
+                        detected.append(class_name)
+
+            if detected:
+                summary = f"Detected in frame: {', '.join(detected)}. "
+
+                # Add context based on detections
+                if any(d in ["hand", "bare_hand", "fingers", "palm"] for d in detected):
+                    summary += "Worker hands visible - monitoring for PPE compliance. "
+                if any(d in ["machine", "tool", "grinder", "saw"] for d in detected):
+                    summary += "Industrial equipment in use - high-risk zone. "
+                if any(d in ["person", "worker", "face"] for d in detected):
+                    summary += "Worker present in frame. "
+
+                violations = camera_violations.get(camera_id, [])
+                if violations:
+                    summary += f"[ALERT: {len(violations)} active violation(s)]"
+            else:
+                summary = "Monitoring video feed. No significant objects detected in current frame."
+
+        # Cache the result
+        camera_summaries[camera_id] = {
+            "summary": summary,
+            "timestamp": time.time()
+        }
+
+        return summary
+
+    except Exception as e:
+        print(f"Error generating summary for {camera_id}: {e}")
+        return f"AI analysis in progress... (DGX Spark processing)"
 
 
 # --- 5. Camera Discovery ---
@@ -413,6 +559,48 @@ async def search_archive(q: str):
 
     results = vector_store.search(q)
     return {"results": results}
+
+
+@app.get("/summarize/{camera_id}")
+async def summarize_video(camera_id: str):
+    """
+    Generate an AI summary of the video content (DGX Spark Superpower).
+    Uses VLM to analyze video frames and describe what's happening.
+    """
+    if camera_id not in cameras:
+        raise HTTPException(status_code=404, detail=f"Camera {camera_id} not found")
+
+    summary = generate_video_summary(camera_id)
+
+    return {
+        "camera_id": camera_id,
+        "camera_label": cameras[camera_id]["label"],
+        "summary": summary,
+        "vlm_enabled": vlm_model is not None,
+        "device": device,
+        "cached": camera_summaries.get(camera_id, {}).get("timestamp", 0) > 0
+    }
+
+
+@app.get("/summarize")
+async def summarize_all_videos():
+    """
+    Generate AI summaries for all cameras (DGX Spark Superpower).
+    """
+    summaries = {}
+    for camera_id in cameras:
+        summary = generate_video_summary(camera_id)
+        summaries[camera_id] = {
+            "label": cameras[camera_id]["label"],
+            "summary": summary
+        }
+
+    return {
+        "summaries": summaries,
+        "count": len(summaries),
+        "vlm_enabled": vlm_model is not None,
+        "device": device
+    }
 
 
 @app.post("/cameras/refresh")

@@ -60,28 +60,6 @@ const StatusBadge = ({ status }: { status: string }) => {
   )
 }
 
-// AI-generated video summaries based on camera feed content
-const getVideoSummary = (cameraLabel: string): string => {
-  const label = cameraLabel.toLowerCase()
-
-  if (label.includes('factory001') && label.includes('worker001')) {
-    return 'Worker performing precision assembly tasks on electronic components. Hands frequently near small machinery. PPE compliance being monitored.'
-  } else if (label.includes('factory001') && label.includes('worker002')) {
-    return 'Material handling operations in progress. Worker transporting components between workstations. Monitoring for proper lifting techniques.'
-  } else if (label.includes('factory001') && label.includes('worker003')) {
-    return 'Quality inspection station. Worker examining finished products under magnification. Low risk activity detected.'
-  } else if (label.includes('factory002') && label.includes('worker001')) {
-    return 'Heavy machinery operation zone. Worker operating industrial press. High-risk area - continuous safety monitoring active.'
-  } else if (label.includes('factory002') && label.includes('worker002')) {
-    return 'Welding station activity detected. Monitoring for proper face shield and glove usage. Spark hazard zone.'
-  } else if (label.includes('factory002') && label.includes('worker003')) {
-    return 'Tool maintenance area. Worker servicing equipment. Checking for proper lockout/tagout procedures.'
-  } else if (label.includes('violation')) {
-    return 'Safety violation scenario for training purposes. Demonstrating improper PPE usage or unsafe work practices.'
-  }
-
-  return 'AI analyzing video feed... Monitoring for safety compliance and potential OSHA violations.'
-}
 
 const DGXBadge = () => (
   <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gradient-to-r from-green-500/20 to-cyan/20 border border-green-500/30 rounded text-[8px] font-bold text-green-400">
@@ -95,10 +73,34 @@ const DGXBadge = () => (
 const CameraFeedCard = ({ camera, layout, hasViolation }: { camera: Camera; layout: 'grid' | 'list'; hasViolation?: boolean }) => {
   const [isHovered, setIsHovered] = useState(false)
   const [streamError, setStreamError] = useState(false)
+  const [videoSummary, setVideoSummary] = useState<string>('AI analyzing video feed...')
+  const [summaryLoading, setSummaryLoading] = useState(true)
 
   // Build stream URL from backend
   const streamUrl = `${BACKEND_URL}/video_feed/${camera.id}`
-  const videoSummary = getVideoSummary(camera.label)
+
+  // Fetch real AI summary from backend
+  useEffect(() => {
+    const fetchSummary = async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/summarize/${camera.id}`)
+        if (response.ok) {
+          const data = await response.json()
+          setVideoSummary(data.summary || 'No summary available')
+          setSummaryLoading(false)
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch summary for ${camera.id}:`, error)
+        setVideoSummary('AI analysis pending... (Connect to DGX backend)')
+        setSummaryLoading(false)
+      }
+    }
+
+    fetchSummary()
+    // Refresh summary every 30 seconds
+    const interval = setInterval(fetchSummary, 30000)
+    return () => clearInterval(interval)
+  }, [camera.id])
 
   if (layout === 'list') {
     return (
@@ -169,7 +171,14 @@ const CameraFeedCard = ({ camera, layout, hasViolation }: { camera: Camera; layo
               <span className="text-[10px] font-semibold text-cyan uppercase tracking-wider">Video Summary</span>
               <DGXBadge />
             </div>
-            <p className="text-xs text-white/70 leading-relaxed">{videoSummary}</p>
+            {summaryLoading ? (
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-cyan animate-pulse" />
+                <p className="text-xs text-white/50 italic">Analyzing with DGX Spark...</p>
+              </div>
+            ) : (
+              <p className="text-xs text-white/70 leading-relaxed">{videoSummary}</p>
+            )}
           </div>
 
           <div className="flex items-center gap-4 text-xs text-white/40">
@@ -251,7 +260,14 @@ const CameraFeedCard = ({ camera, layout, hasViolation }: { camera: Camera; layo
           <span className="text-[9px] font-semibold text-cyan uppercase tracking-wider">Video Summary</span>
           <DGXBadge />
         </div>
-        <p className="text-[10px] text-white/70 leading-relaxed">{videoSummary}</p>
+        {summaryLoading ? (
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-cyan animate-pulse" />
+            <p className="text-[10px] text-white/50 italic">Analyzing with DGX Spark...</p>
+          </div>
+        ) : (
+          <p className="text-[10px] text-white/70 leading-relaxed">{videoSummary}</p>
+        )}
       </div>
 
       <div className="flex items-center gap-2 text-[9px] text-white/40">
