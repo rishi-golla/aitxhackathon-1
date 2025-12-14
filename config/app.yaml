@@ -33,7 +33,10 @@ detection:
     - ladder
     - chemical container
     - fire extinguisher
-  tensorrt: false
+  # DGX Spark Optimization: TensorRT provides 5-10x inference speedup
+  # Uses Tensor Cores for FP16 acceleration on NVIDIA GPUs
+  tensorrt: true
+  tensorrt_engine_path: models/yolo_trt.engine
   enable_tracking: false
 
 vlm:

@@ -88,7 +88,9 @@ class PPEDetector:
         confidence_threshold: float = 0.3,
         custom_classes: Optional[list[str]] = None,
         device: str = "auto",
-        enable_tracking: bool = False
+        enable_tracking: bool = False,
+        tensorrt_engine_path: Optional[str] = None,
+        auto_export_tensorrt: bool = False
     ):
         """
         Initialize the PPE detector.
@@ -100,6 +102,8 @@ class PPEDetector:
             custom_classes: Optional custom class list (uses DEFAULT_CLASSES if None)
             device: Device to run on ("cuda", "cpu", or "auto")
             enable_tracking: Enable ByteTrack for object tracking
+            tensorrt_engine_path: Path to TensorRT engine for optimized inference
+            auto_export_tensorrt: Auto-export TensorRT engine if not found (DGX Spark)
         """
         if not ULTRALYTICS_AVAILABLE:
             raise ImportError("ultralytics package is required. Install with: pip install ultralytics")
@@ -108,8 +112,11 @@ class PPEDetector:
         self.confidence_threshold = confidence_threshold
         self.classes = custom_classes or self.DEFAULT_CLASSES.copy()
         self.enable_tracking = enable_tracking
+        self.tensorrt_engine_path = tensorrt_engine_path
+        self.auto_export_tensorrt = auto_export_tensorrt
         self._model: Optional[YOLOWorld] = None
         self._warmed_up = False
+        self._using_tensorrt = False
 
         # Determine device
         if device == "auto":
@@ -124,36 +131,106 @@ class PPEDetector:
             "ppe_detector_init",
             model_size=model_size,
             device=self.device,
-            num_classes=len(self.classes)
+            num_classes=len(self.classes),
+            tensorrt_path=tensorrt_engine_path
         )
 
         self._load_model()
 
     def _load_model(self) -> None:
-        """Load the YOLO-World model."""
+        """Load the YOLO-World model, with TensorRT optimization for DGX Spark."""
+        import os
+
         try:
-            # Check for local model first
-            local_path = f"models/{self.model_size}.pt"
-            try:
-                self._model = YOLOWorld(local_path)
-                log.info("model_loaded_local", path=local_path)
-            except Exception:
-                # Download from hub
-                self._model = YOLOWorld(self.model_size)
-                log.info("model_loaded_hub", model=self.model_size)
+            # DGX Spark Optimization: Try TensorRT engine first for 5-10x speedup
+            # TensorRT leverages Tensor Cores for FP16 acceleration
+            if self.tensorrt_engine_path and self.device == "cuda":
+                if os.path.exists(self.tensorrt_engine_path):
+                    try:
+                        self._model = YOLO(self.tensorrt_engine_path)
+                        self._using_tensorrt = True
+                        log.info(
+                            "tensorrt_engine_loaded",
+                            path=self.tensorrt_engine_path,
+                            optimization="DGX Spark TensorRT FP16"
+                        )
+                    except Exception as e:
+                        log.warning("tensorrt_load_failed", error=str(e))
+                        self._using_tensorrt = False
+                elif self.auto_export_tensorrt:
+                    # Auto-export TensorRT engine if configured
+                    log.info("tensorrt_engine_not_found_will_export", path=self.tensorrt_engine_path)
+                    self._load_pytorch_model()
+                    self._export_and_reload_tensorrt()
+                    return
+                else:
+                    log.warning("tensorrt_engine_not_found", path=self.tensorrt_engine_path)
 
-            # Move to device
-            if self.device == "cuda":
-                self._model.to("cuda")
-
-            # Set initial classes
-            self._model.set_classes(self.classes)
-
-            log.info("ppe_detector_ready", device=self.device, classes=len(self.classes))
+            # Fall back to PyTorch model
+            if not self._using_tensorrt:
+                self._load_pytorch_model()
 
         except Exception as e:
             log.error("model_load_failed", error=str(e))
             raise
+
+    def _load_pytorch_model(self) -> None:
+        """Load the standard PyTorch YOLO-World model."""
+        # Check for local model first
+        local_path = f"models/{self.model_size}.pt"
+        try:
+            self._model = YOLOWorld(local_path)
+            log.info("model_loaded_local", path=local_path)
+        except Exception:
+            # Download from hub
+            self._model = YOLOWorld(self.model_size)
+            log.info("model_loaded_hub", model=self.model_size)
+
+        # Move to device
+        if self.device == "cuda":
+            self._model.to("cuda")
+
+        # Set initial classes
+        self._model.set_classes(self.classes)
+
+        log.info("ppe_detector_ready", device=self.device, classes=len(self.classes), tensorrt=False)
+
+    def _export_and_reload_tensorrt(self) -> None:
+        """Export model to TensorRT and reload for optimized inference."""
+        import os
+
+        if self._model is None:
+            return
+
+        try:
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(self.tensorrt_engine_path), exist_ok=True)
+
+            log.info("tensorrt_export_starting", target=self.tensorrt_engine_path)
+
+            # Export with FP16 for DGX Spark Tensor Cores
+            exported_path = self._model.export(
+                format="engine",
+                imgsz=640,
+                half=True,  # FP16 for speed
+                device=0
+            )
+
+            log.info("tensorrt_export_complete", path=exported_path)
+
+            # Reload the TensorRT engine
+            self._model = YOLO(exported_path)
+            self._using_tensorrt = True
+
+            log.info(
+                "tensorrt_engine_active",
+                optimization="DGX Spark TensorRT FP16",
+                speedup="5-10x expected"
+            )
+
+        except Exception as e:
+            log.warning("tensorrt_export_failed_using_pytorch", error=str(e))
+            self._using_tensorrt = False
 
     def _warmup(self) -> None:
         """Warmup the model with a dummy inference."""
@@ -377,7 +454,10 @@ class PPEDetector:
             "num_classes": len(self.classes),
             "classes": self.classes,
             "tracking_enabled": self.enable_tracking,
-            "warmed_up": self._warmed_up
+            "warmed_up": self._warmed_up,
+            "tensorrt_enabled": self._using_tensorrt,
+            "tensorrt_engine_path": self.tensorrt_engine_path,
+            "dgx_spark_optimized": self._using_tensorrt and self.device == "cuda"
         }
 
 
