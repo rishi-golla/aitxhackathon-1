@@ -51,7 +51,6 @@ env/
 ENV/
 
 # Data and cache
-data/
 logs/
 .alert_cache/
 *.db
